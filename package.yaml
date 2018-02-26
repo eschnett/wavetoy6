@@ -1,0 +1,123 @@
+# This YAML file describes your package. Stack will automatically
+# generate a Cabal file when you run `stack build`. See the hpack
+# website for help with this file: <https://github.com/sol/hpack>.
+name: wavetoy6
+version: '0.0.0'
+github: "eschnett/wavetoy6"
+license: MIT
+author: "Erik Schnetter"
+maintainer: "Erik Schnetter"
+synopsis: wavetoy6 is a Haskell WaveToy implementation
+description: wavetoy6 is a Haskell WaveToy implementation.
+# category: Other
+
+extra-source-files:
+  - CHANGELOG.rst
+  - LICENSE.rst
+  - README.rst
+  - package.yaml
+  - stack.yaml
+
+ghc-options:
+  - -funbox-strict-fields
+  - -Wall
+  - -Wcompat
+  - -Wincomplete-record-updates
+  - -Wincomplete-uni-patterns
+  - -Wredundant-constraints
+  - -Wno-unused-matches
+
+default-extensions:
+  #esoteric - ApplicativeDo
+  - BangPatterns
+  - ConstraintKinds
+  - DataKinds
+  - DefaultSignatures
+  - DeriveFoldable
+  - DeriveFunctor
+  - DeriveGeneric
+  - DeriveLift
+  - DeriveTraversable
+  #unknown - DerivingStrategies
+  - EmptyCase
+  - ExistentialQuantification
+  - FlexibleContexts
+  - FlexibleInstances
+  - FunctionalDependencies
+  - GADTs
+  - GeneralizedNewtypeDeriving
+  - InstanceSigs
+  - KindSignatures
+  - LambdaCase
+  - MultiParamTypeClasses
+  - MultiWayIf
+  - NamedFieldPuns
+  - OverloadedStrings
+  - PatternSynonyms
+  - RankNTypes
+  - ScopedTypeVariables
+  - StandaloneDeriving
+  - TupleSections
+  - TypeApplications
+  - TypeFamilies
+  - TypeFamilyDependencies
+  - TypeOperators
+  # more controversial?
+  - AllowAmbiguousTypes
+  - PolyKinds
+  - TypeInType
+
+library:
+  dependencies:
+    - QuickCheck
+    - base
+    - constraints
+    # - math-functions
+    - quickcheck-instances
+    - validity
+    - validity-vector
+    - vector
+  source-dirs: lib
+
+executables:
+  wavetoy6:
+    source-dirs: src
+    main: Main.hs
+    dependencies:
+      - base
+      - wavetoy6
+    ghc-options:
+      - -rtsopts
+      - -threaded
+      - -with-rtsopts=-N
+
+benchmarks:
+  wavetoy6-benchmarks:
+    source-dirs: bench
+    main: Main.hs
+    dependencies:
+      - base
+      - criterion
+      - wavetoy6
+    ghc-options:
+      - -rtsopts
+      - -threaded
+      - -with-rtsopts=-N
+
+tests:
+  wavetoy6-test-suite:
+    source-dirs: test
+    main: Main.hs
+    dependencies:
+      - QuickCheck
+      - base
+      - tasty
+      - tasty-discover
+      # - tasty-hspec
+      - tasty-quickcheck
+      - vector
+      - wavetoy6
+    ghc-options:
+      - -rtsopts
+      - -threaded
+      - -with-rtsopts=-N
