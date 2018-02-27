@@ -7,7 +7,8 @@ module Hask ( Hask
             , Impossible
             ) where
 
-import Prelude hiding ( Functor(..)
+import Prelude hiding ( Foldable(..)
+                      , Functor(..)
                       , Applicative(..)
                       )
 
@@ -31,7 +32,7 @@ instance Hask (o :: ObjKind)
 instance Category Hask where
     -- type Obj Hask = Hask
 
-instance Category k => Subcategory k Hask where
+instance {-# INCOHERENT #-} Category k => Subcategory k Hask where
     proveSubcategory = Sub Dict
 
 -- | Haskell functions are morphisms in Hask
@@ -73,6 +74,9 @@ instance Functor Proxy where
     proveFunMor _ = Sub Dict
     fmap f = \Proxy -> Proxy
 
+instance Foldable Proxy where
+    foldMap f Proxy = mempty
+
 instance Apply Proxy where
     -- liftA2' f = uncurry (liftA2 (curry (chase f)))
     liftA2 f Proxy Proxy = Proxy
@@ -88,6 +92,9 @@ instance Functor Identity where
     type FunMor Identity m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \(Identity x) -> Identity (chase f x)
+
+instance Foldable Identity where
+    foldMap f (Identity x) = f x
 
 instance Apply Identity where
     -- liftA2' f = uncurry (liftA2 (curry (chase f)))
@@ -107,10 +114,14 @@ instance Functor (Either a) where
              Left x -> Left x
              Right y -> Right (chase f y)
 
+instance Foldable (Either a) where
+    foldMap f (Left a) = mempty
+    foldMap f (Right x) = f x
+
 instance Apply (Either a) where
     -- liftA2' f = uncurry (liftA2 (curry (chase f)))
-    liftA2 f (Left x) _ = Left x
-    liftA2 f _ (Left y) = Left y
+    liftA2 f (Left a) _ = Left a
+    liftA2 f _ (Left b) = Left b
     liftA2 f (Right x) (Right y) = Right (f `chase` x `chase` y)
 
 instance Applicative (Either a) where
@@ -124,6 +135,9 @@ instance Functor ((,) a) where
     type FunMor ((,) a) m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \(x, y) -> (x, chase f y)
+
+instance Foldable ((,) a) where
+    foldMap f (a, x) = f x
 
 instance Semigroup a => Apply ((,) a) where
     -- liftA2' f = uncurry (liftA2 (curry (chase f)))
@@ -158,6 +172,10 @@ instance Functor [] where
     fmap f = \case
              [] -> []
              (x:xs) -> chase f x : fmap f xs
+
+instance Foldable [] where
+    foldMap f [] = mempty
+    foldMap f (x:xs) = f x `mappend` foldMap f xs
 
 -- | This is zippy
 instance Apply [] where
@@ -209,6 +227,14 @@ instance ( Functor f
           q4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
           p4 = proveFunctor (Proxy @g) \\ q4
 
+instance ( Foldable f
+         , Foldable g
+         , Dom f ~ Dom g
+         , Functor (Sum f g)
+         ) => Foldable (Sum f g) where
+    foldMap f (InL xs) = foldMap f xs
+    foldMap f (InR ys) = foldMap f ys
+
 -- | 'Product'
 instance ( Functor f
          , Functor g
@@ -248,6 +274,13 @@ instance ( Functor f
           p3 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @g, Proxy @m))
           q4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
           p4 = proveFunctor (Proxy @g) \\ q4
+
+instance ( Foldable f
+         , Foldable g
+         , Dom f ~ Dom g
+         , Functor (Product f g)
+         ) => Foldable (Product f g) where
+    foldMap f (Pair xs ys) = foldMap f xs `mappend` foldMap f ys
 
 instance ( Apply f
          , Apply g
@@ -302,7 +335,7 @@ instance ( Applicative f
 -- | 'Compose'
 instance ( Functor f
          , Functor g
-         , Cod g ~ Dom f        -- TODO: Subcategory (Cod g) (Dom f)
+         , Dom f ~ Cod g        -- TODO: Subcategory (Cod g) (Dom f)
          , Subcategory (Cod f) Hask
          ) => Functor (Compose f g) where
     type Dom (Compose f g) = Dom g
@@ -366,21 +399,83 @@ instance ( Functor f
           p14 = trans weaken1 p13
           p15 = trans weaken2 p13
 
--- instance ( Apply f
---          , Apply g
---          , Cod g ~ Dom f        -- TODO: Subcategory (Cod g) (Dom f)
---          , Subcategory (Cod f) Hask
---          , Functor (Compose f g)
---          ) => Apply (Compose f g) where
---     -- liftA2' f = uncurry (liftA2 (curry (chase f)))
---     liftA2 f (Compose xss) (Compose yss) =
---         Compose (liftA2 (liftA2 f) `chase` xss `chase` yss)
--- 
--- instance ( Applicative f
---          , Applicative g
---          , Cod g ~ Dom f        -- TODO: Subcategory (Cod g) (Dom f)
---          , Subcategory (Cod f) Hask
---          , Apply (Compose f g)
---          ) => Applicative (Compose f g) where
---     pure :: forall a. Dom (Compose f g) a => a -> Compose f g a
---     pure x = Compose (pure (pure x))
+instance ( Foldable f
+         , Foldable g
+         , Dom f ~ Cod g
+         , Functor (Compose f g)
+         ) => Foldable (Compose f g) where
+    foldMap :: forall a b. (Dom (Compose f g) a, Monoid b)
+               => (a -> b) -> Compose f g a -> b
+    foldMap f (Compose xss) = foldMap (foldMap f) xss \\ p1
+        where p1 :: Dom g a :- Cod g (g a)
+              p1 = proveFunctor (Proxy @g)
+
+instance ( Apply f
+         , Apply g
+         , Dom f ~ Cod g        -- TODO: Subcategory (Cod g) (Dom f)
+         , Functor (Compose f g)
+         ) => Apply (Compose f g) where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 :: forall m n p a b c.
+              ( Dom g a, Dom g b, Dom g c, Morphism m, MorCat m ~ Dom g
+              , n ~ FunMor g m, p ~ FunMor f n
+              )
+             => a `m` (b `m` c) ->
+                 Compose f g a -> Compose f g b -> Compose f g c
+    liftA2 f (Compose xss) (Compose yss) =
+        Compose (liftA2 (liftA2 f) `chase` xss `chase` yss)
+            \\ p5 \\ p6 \\ p7 \\ p8 \\ p9 \\ p13 \\ p14 \\ p15 \\ p18 \\ p19
+        where
+          p1 :: Dom g a :- Cod g (g a)
+          p2 :: Dom g b :- Cod g (g b)
+          p3 :: Dom g c :- Cod g (g c)
+          p4 :: (Morphism m, MorCat m ~ Dom g)
+                :- (Morphism n, MorCat n ~ Cod g)
+          p5 :: (Morphism m, MorCat m ~ Dom g) :- Morphism n
+          p6 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat n ~ Cod g)
+
+          p7 :: Dom g a :- Dom f (g a)
+          p8 :: Dom g b :- Dom f (g b)
+          p9 :: Dom g c :- Dom f (g c)
+          p10 :: Dom f (g a) :- Cod f (f (g a))
+          p11 :: Dom f (g b) :- Cod f (f (g b))
+          p12 :: Dom f (g c) :- Cod f (f (g c))
+          p13 :: Dom g a :- Cod f (f (g a))
+          p14 :: Dom g b :- Cod f (f (g b))
+          p15 :: Dom g c :- Cod f (f (g c))
+          p16 :: (Morphism n, MorCat n ~ Dom f)
+                 :- (Morphism p, MorCat p ~ Cod f)
+          p17 :: (Morphism m, MorCat m ~ Dom g)
+                 :- (Morphism p, MorCat p ~ Cod f)
+          p18 :: (Morphism m, MorCat m ~ Dom g) :- Morphism p
+          p19 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat p ~ Cod f)
+
+          p1 = proveFunctor (Proxy @g)
+          p2 = proveFunctor (Proxy @g)
+          p3 = proveFunctor (Proxy @g)
+          p4 = proveFunMor (Proxy @g, Proxy @m)
+          p5 = trans weaken1 p4
+          p6 = trans weaken2 p4
+
+          p7 = proveFunctor (Proxy @g)
+          p8 = proveFunctor (Proxy @g)
+          p9 = proveFunctor (Proxy @g)
+          p10 = proveFunctor (Proxy @f)
+          p11 = proveFunctor (Proxy @f)
+          p12 = proveFunctor (Proxy @f)
+          p13 = trans p10 p1
+          p14 = trans p11 p2
+          p15 = trans p12 p3
+          p16 = proveFunMor (Proxy @f, Proxy @n)
+          p17 = trans p16 p4
+          p18 = trans weaken1 p17
+          p19 = trans weaken2 p17
+
+instance ( Applicative f
+         , Applicative g
+         , Dom f ~ Cod g        -- TODO: Subcategory (Cod g) (Dom f)
+         , Apply (Compose f g)
+         ) => Applicative (Compose f g) where
+    pure :: forall a. Dom (Compose f g) a => a -> Compose f g a
+    pure x = Compose (pure (pure x))
+             \\ (proveFunctor (Proxy @g) :: Dom g a :- Cod g (g a))

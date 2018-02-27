@@ -12,11 +12,13 @@ module Category ( CatKind
                 , MId(..)
                 , MCompose(..)
                 , Functor(..)
+                , Foldable(..)
                 , Apply(..)
                 , Applicative(..)
                 ) where
 
-import Prelude hiding ( Functor(..)
+import Prelude hiding ( Foldable(..)
+                      , Functor(..)
                       , Applicative(..)
                       )
 
@@ -38,12 +40,15 @@ class Category (k :: CatKind) where
     type Obj k :: ObjKind -> Constraint
     type Obj k = k
 
+-- | Subcategory relationahips. Note that it does not matter why a
+-- category 's' is a subcategory of another category 'k', and we can
+-- therefore allow incoherent instances.
 class (Category s, Category k)
         => Subcategory (s :: CatKind) (k :: CatKind) where
     proveSubcategory :: s a :- k a
 
 -- | 'Subcategory' relations form a monoid
-instance Category k => Subcategory k k where
+instance {-# INCOHERENT #-} Category k => Subcategory k k where
     proveSubcategory = refl
 
 -- | Prove that 'k1' is a subcategory of 'k3' by explicitly providing
@@ -53,7 +58,8 @@ class (Category k1, Category k2, Category k3,
        Subcategory k2 k3, Subcategory k1 k2)
     => ProveSubcategory k2 k1 k3
 
-instance (Category k1, Category k3, ProveSubcategory k2 k1 k3)
+instance {-# INCOHERENT #-}
+        (Category k1, Category k3, ProveSubcategory k2 k1 k3)
         => Subcategory k1 k3 where
     proveSubcategory =
         trans
@@ -125,6 +131,12 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
     fmap ::
         (Dom f a, Dom f b, Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
         => a `m` b -> f a `n` f b
+
+-- | Foldable
+class Functor f => Foldable f where
+    foldMap :: (Dom f a, Monoid b) => (a -> b) -> f a -> b
+    fold :: (Dom f a, Monoid a) => f a -> a
+    fold = foldMap id
 
 -- | Apply
 class Functor f => Apply f where
