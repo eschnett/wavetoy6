@@ -120,7 +120,7 @@ instance ( Functor f, Functor g, Dom f ~ Dom g
     fmap ::
         forall m a b. (Dom f a, Dom f b, Morphism m, MorCat m ~ Dom f)
         => a `m` b -> Sum f g a -> Sum f g b
-    fmap f = r \\ x1 \\ x2 \\ x3 \\ x4
+    fmap f = r \\ p1 \\ p2 \\ p3 \\ p4
         where
           r :: ( Morphism (FunMor f m)
                , MorCat (FunMor f m) (f a)
@@ -131,18 +131,20 @@ instance ( Functor f, Functor g, Dom f ~ Dom g
           r = \case
               InL xs -> InL (chase (fmap f) xs)
               InR ys -> InR (chase (fmap f) ys)
-          x1 :: () :- Morphism (FunMor f m)
-          x1 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @f, Proxy @m))
-          y2 :: (Morphism m, MorCat m ~ Dom f) :- (MorCat (FunMor f m) ~ Cod f)
-          y2 = trans weaken2 $ proveFunMor (Proxy @f, Proxy @m)
-          x2 :: Dom f a :- MorCat (FunMor f m) (f a)
-          x2 = proveFunctor (Proxy @f) \\ y2
-          x3 :: () :- Morphism (FunMor g m)
-          x3 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @g, Proxy @m))
-          y4 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat (FunMor g m) ~ Cod g)
-          y4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
-          x4 :: Dom g a :- MorCat (FunMor g m) (g a)
-          x4 = proveFunctor (Proxy @g) \\ y4
+
+          p1 :: () :- Morphism (FunMor f m)
+          q2 :: (Morphism m, MorCat m ~ Dom f) :- (MorCat (FunMor f m) ~ Cod f)
+          p2 :: Dom f a :- MorCat (FunMor f m) (f a)
+          p3 :: () :- Morphism (FunMor g m)
+          q4 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat (FunMor g m) ~ Cod g)
+          p4 :: Dom g a :- MorCat (FunMor g m) (g a)
+
+          p1 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @f, Proxy @m))
+          q2 = trans weaken2 $ proveFunMor (Proxy @f, Proxy @m)
+          p2 = proveFunctor (Proxy @f) \\ q2
+          p3 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @g, Proxy @m))
+          q4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
+          p4 = proveFunctor (Proxy @g) \\ q4
 
 -- | 'Product'
 instance ( Functor f, Functor g, Dom f ~ Dom g
@@ -157,7 +159,7 @@ instance ( Functor f, Functor g, Dom f ~ Dom g
     fmap ::
         forall m a b. (Dom f a, Dom f b, Morphism m, MorCat m ~ Dom f)
         => a `m` b -> Product f g a -> Product f g b
-    fmap f = r \\ x1 \\ x2 \\ x3 \\ x4
+    fmap f = r \\ p1 \\ p2 \\ p3 \\ p4
         where
           r :: ( Morphism (FunMor f m)
                , MorCat (FunMor f m) (f a)
@@ -166,18 +168,20 @@ instance ( Functor f, Functor g, Dom f ~ Dom g
                )
               => Product f g a -> Product f g b
           r = \(Pair xs ys) -> Pair (chase (fmap f) xs) (chase (fmap f) ys)
-          x1 :: () :- Morphism (FunMor f m)
-          x1 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @f, Proxy @m))
-          y2 :: (Morphism m, MorCat m ~ Dom f) :- (MorCat (FunMor f m) ~ Cod f)
-          y2 = trans weaken2 $ proveFunMor (Proxy @f, Proxy @m)
-          x2 :: Dom f a :- MorCat (FunMor f m) (f a)
-          x2 = proveFunctor (Proxy @f) \\ y2
-          x3 :: () :- Morphism (FunMor g m)
-          x3 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @g, Proxy @m))
-          y4 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat (FunMor g m) ~ Cod g)
-          y4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
-          x4 :: Dom g a :- MorCat (FunMor g m) (g a)
-          x4 = proveFunctor (Proxy @g) \\ y4
+
+          p1 :: () :- Morphism (FunMor f m)
+          q2 :: (Morphism m, MorCat m ~ Dom f) :- (MorCat (FunMor f m) ~ Cod f)
+          p2 :: Dom f a :- MorCat (FunMor f m) (f a)
+          p3 :: () :- Morphism (FunMor g m)
+          q4 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat (FunMor g m) ~ Cod g)
+          p4 :: Dom g a :- MorCat (FunMor g m) (g a)
+
+          p1 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @f, Proxy @m))
+          q2 = trans weaken2 $ proveFunMor (Proxy @f, Proxy @m)
+          p2 = proveFunctor (Proxy @f) \\ q2
+          p3 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @g, Proxy @m))
+          q4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
+          p4 = proveFunctor (Proxy @g) \\ q4
 
 -- | 'Compose'
 instance ( Functor f, Functor g
@@ -192,7 +196,7 @@ instance ( Functor f, Functor g
     fmap :: forall m n p a b. ( Dom g a, Dom g b, Morphism m, MorCat m ~ Dom g
                               , n ~ FunMor g m, p ~ FunMor f n)
             => a `m` b -> Compose f g a -> Compose f g b
-    fmap f = r \\ x4 \\ x5 \\ y1 \\ y2 \\ y5 \\ y6 \\ y9 \\ y10
+    fmap f = r \\ p4 \\ p5 \\ p6 \\ p7 \\ p10 \\ p11 \\ p14 \\ p15
         where
           r :: ( Morphism n
                , MorCat n ~ Cod g
@@ -205,38 +209,39 @@ instance ( Functor f, Functor g
                => Compose f g a -> Compose f g b
           r = \(Compose xss) -> Compose (chase (fmap (fmap f)) xss)
 
-          x1 :: Dom g a :- Cod g (g a)
-          x2 :: Dom g b :- Cod g (g b)
-          x3 :: (Morphism m, MorCat m ~ Dom g)
+          p1 :: Dom g a :- Cod g (g a)
+          p2 :: Dom g b :- Cod g (g b)
+          p3 :: (Morphism m, MorCat m ~ Dom g)
                 :- (Morphism n, MorCat n ~ Cod g)
-          x4 :: (Morphism m, MorCat m ~ Dom g) :- Morphism n
-          x5 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat n ~ Cod g)
+          p4 :: (Morphism m, MorCat m ~ Dom g) :- Morphism n
+          p5 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat n ~ Cod g)
 
-          y1 :: Dom g a :- Dom f (g a)
-          y2 :: Dom g b :- Dom f (g b)
-          y3 :: Dom f (g a) :- Cod f (f (g a))
-          y4 :: Dom f (g b) :- Cod f (f (g b))
-          y5 :: Dom g a :- Cod f (f (g a))
-          y6 :: Dom g b :- Cod f (f (g b))
-          y7 :: (Morphism n, MorCat n ~ Dom f)
-                :- (Morphism p, MorCat p ~ Cod f)
-          y8 :: (Morphism m, MorCat m ~ Dom g) :- (Morphism p, MorCat p ~ Cod f)
-          y9 :: (Morphism m, MorCat m ~ Dom g) :- Morphism p
-          y10 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat p ~ Cod f)
+          p6 :: Dom g a :- Dom f (g a)
+          p7 :: Dom g b :- Dom f (g b)
+          p8 :: Dom f (g a) :- Cod f (f (g a))
+          p9 :: Dom f (g b) :- Cod f (f (g b))
+          p10 :: Dom g a :- Cod f (f (g a))
+          p11 :: Dom g b :- Cod f (f (g b))
+          p12 :: (Morphism n, MorCat n ~ Dom f)
+                 :- (Morphism p, MorCat p ~ Cod f)
+          p13 :: (Morphism m, MorCat m ~ Dom g)
+                 :- (Morphism p, MorCat p ~ Cod f)
+          p14 :: (Morphism m, MorCat m ~ Dom g) :- Morphism p
+          p15 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat p ~ Cod f)
 
-          x1 = proveFunctor (Proxy @g)
-          x2 = proveFunctor (Proxy @g)
-          x3 = proveFunMor (Proxy @g, Proxy @m)
-          x4 = trans weaken1 x3
-          x5 = trans weaken2 x3
+          p1 = proveFunctor (Proxy @g)
+          p2 = proveFunctor (Proxy @g)
+          p3 = proveFunMor (Proxy @g, Proxy @m)
+          p4 = trans weaken1 p3
+          p5 = trans weaken2 p3
 
-          y1 = proveFunctor (Proxy @g)
-          y2 = proveFunctor (Proxy @g)
-          y3 = proveFunctor (Proxy @f)
-          y4 = proveFunctor (Proxy @f)
-          y5 = trans y3 x1
-          y6 = trans y4 x2
-          y7 = proveFunMor (Proxy @f, Proxy @n)
-          y8 = trans y7 x3
-          y9 = trans weaken1 y8
-          y10 = trans weaken2 y8
+          p6 = proveFunctor (Proxy @g)
+          p7 = proveFunctor (Proxy @g)
+          p8 = proveFunctor (Proxy @f)
+          p9 = proveFunctor (Proxy @f)
+          p10 = trans p8 p1
+          p11 = trans p9 p2
+          p12 = proveFunMor (Proxy @f, Proxy @n)
+          p13 = trans p12 p3
+          p14 = trans weaken1 p13
+          p15 = trans weaken2 p13
