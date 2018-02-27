@@ -1,20 +1,19 @@
--- {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 
-module Hask ( Hask(..)
+{-# OPTIONS_GHC -Wno-orphans #-}
+
+module Hask ( Hask
+            , Impossible
             ) where
 
 import Prelude hiding (Functor(..))
 
 import Data.Constraint
 import Data.Functor.Compose
-import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Sum
 import Data.Proxy
-
-import qualified GHC.Exts as Exts (Any)
 
 import Category
 
@@ -193,8 +192,10 @@ instance ( Functor f, Functor g
     proveFunctor _ = Sub Dict
     type FunMor (Compose f g) m = (->)
     proveFunMor _ = Sub Dict
-    fmap :: forall m n p a b. ( Dom g a, Dom g b, Morphism m, MorCat m ~ Dom g
-                              , n ~ FunMor g m, p ~ FunMor f n)
+    fmap :: forall m n p a b.
+            ( Dom g a, Dom g b, Morphism m, MorCat m ~ Dom g
+            , n ~ FunMor g m, p ~ FunMor f n
+            )
             => a `m` b -> Compose f g a -> Compose f g b
     fmap f = r \\ p4 \\ p5 \\ p6 \\ p7 \\ p10 \\ p11 \\ p14 \\ p15
         where
@@ -205,7 +206,8 @@ instance ( Functor f, Functor g
                , Cod f (f (g a))
                -- , Cod f (f (g b))
                , Morphism p
-               , MorCat p ~ Cod f)
+               , MorCat p ~ Cod f
+               )
                => Compose f g a -> Compose f g b
           r = \(Compose xss) -> Compose (chase (fmap (fmap f)) xss)
 
