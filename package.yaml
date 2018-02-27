@@ -111,6 +111,7 @@ tests:
     dependencies:
       - QuickCheck
       - base
+      - quickcheck-instances
       - tasty
       - tasty-discover
       # - tasty-hspec

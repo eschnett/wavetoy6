@@ -12,9 +12,13 @@ module Category ( CatKind
                 , MId(..)
                 , MCompose(..)
                 , Functor(..)
+                , Apply(..)
+                , Applicative(..)
                 ) where
 
-import Prelude hiding (Functor(..))
+import Prelude hiding ( Functor(..)
+                      , Applicative(..)
+                      )
 
 import Data.Constraint
 import Data.Kind
@@ -106,6 +110,7 @@ instance (Morphism m, Morphism n, MorCat m ~ MorCat n)
 
 
 
+-- | Functor
 class (Category (Dom f), Category (Cod f)) => Functor f where
     type Dom f :: CatKind
     type Cod f :: CatKind
@@ -113,10 +118,25 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
     -- type FunMor f :: MorKind -> MorKind
     proveFunctor :: Proxy f -> Dom f a :- Cod f (f a)
     proveFunMor ::
-        (n ~ FunMor f m) =>
-        (Proxy f, Proxy m) ->
-        (Morphism m, MorCat m ~ Dom f) :- (Morphism n, MorCat n ~ Cod f)
+        (n ~ FunMor f m)
+        => (Proxy f, Proxy m)
+        -> (Morphism m, MorCat m ~ Dom f) :- (Morphism n, MorCat n ~ Cod f)
     -- TODO: allow 'Subcategory (MorCat m) (Dom f)'
     fmap ::
         (Dom f a, Dom f b, Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
         => a `m` b -> f a `n` f b
+
+-- | Apply
+class Functor f => Apply f where
+    -- liftA2' :: ( Dom f a, Dom f b, Dom f c
+    --            , Morphism m, MorCat m ~ Dom f, n ~ FunMor f m
+    --            )
+    --            => (a, b) `m` c -> (f a, f b) `n` f c
+    liftA2 :: ( Dom f a, Dom f b, Dom f c
+              , Morphism m, MorCat m ~ Dom f, n ~ FunMor f m
+              )
+              => a `m` (b `m` c) -> f a `n` (f b `n` f c)
+
+-- | Applicative
+class Apply f => Applicative f where
+    pure :: Dom f a => a -> f a

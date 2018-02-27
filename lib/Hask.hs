@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -6,7 +7,9 @@ module Hask ( Hask
             , Impossible
             ) where
 
-import Prelude hiding (Functor(..))
+import Prelude hiding ( Functor(..)
+                      , Applicative(..)
+                      )
 
 import Data.Constraint
 import Data.Functor.Compose
@@ -14,6 +17,9 @@ import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Sum
 import Data.Proxy
+import Data.Semigroup hiding (Sum(..), Product(..))
+
+import Test.QuickCheck
 
 import Category
 
@@ -49,6 +55,15 @@ instance Category k => Subcategory Impossible k where
 
 
 
+-- | 'QuickCheck' instance
+instance Morphism Fun where
+    type MorCat Fun = Hask
+    proveChase :: Fun a b -> Hask a :- Hask b
+    proveChase f = Sub Dict
+    chase = applyFun
+
+
+
 -- | 'Proxy'
 instance Functor Proxy where
     type Dom Proxy = Hask
@@ -58,6 +73,13 @@ instance Functor Proxy where
     proveFunMor _ = Sub Dict
     fmap f = \Proxy -> Proxy
 
+instance Apply Proxy where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 f Proxy Proxy = Proxy
+
+instance Applicative Proxy where
+    pure x = Proxy
+
 -- | 'Identity'
 instance Functor Identity where
     type Dom Identity = Hask
@@ -66,6 +88,13 @@ instance Functor Identity where
     type FunMor Identity m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \(Identity x) -> Identity (chase f x)
+
+instance Apply Identity where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 f (Identity x) (Identity y) = Identity (f `chase` x `chase` y)
+
+instance Applicative Identity where
+    pure x = Identity x
 
 -- | 'Either'
 instance Functor (Either a) where
@@ -78,6 +107,15 @@ instance Functor (Either a) where
              Left x -> Left x
              Right y -> Right (chase f y)
 
+instance Apply (Either a) where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 f (Left x) _ = Left x
+    liftA2 f _ (Left y) = Left y
+    liftA2 f (Right x) (Right y) = Right (f `chase` x `chase` y)
+
+instance Applicative (Either a) where
+    pure x = Right x
+
 -- | '(,)'
 instance Functor ((,) a) where
     type Dom ((,) a) = Hask
@@ -87,6 +125,13 @@ instance Functor ((,) a) where
     proveFunMor _ = Sub Dict
     fmap f = \(x, y) -> (x, chase f y)
 
+instance Semigroup a => Apply ((,) a) where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 f (a, x) (b, y) = (a <> b, f `chase` x `chase` y)
+
+instance (Semigroup a, Monoid a) => Applicative ((,) a) where
+    pure x = (mempty, x)
+
 -- | '(->)'
 instance Functor ((->) a) where
     type Dom ((->) a) = Hask
@@ -95,6 +140,13 @@ instance Functor ((->) a) where
     type FunMor ((->) a) m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \fx -> chase f . fx
+
+instance Apply ((->) a) where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 f fx fy x = f `chase` fx x `chase` fy x
+
+instance Applicative ((->) a) where
+    pure = const
 
 -- | '[]'
 instance Functor [] where
@@ -107,10 +159,22 @@ instance Functor [] where
              [] -> []
              (x:xs) -> chase f x : fmap f xs
 
+-- | This is zippy
+instance Apply [] where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 f (x:xs) (y:ys) = f `chase` x `chase` y : liftA2 f xs ys
+    liftA2 f _ _ = []
+
+instance Applicative [] where
+    pure x = [x]
+
 -- | 'Sum'
-instance ( Functor f, Functor g, Dom f ~ Dom g
-         , Subcategory (Cod f) Hask, Subcategory (Cod g) Hask)
-        => Functor (Sum f g) where
+instance ( Functor f
+         , Functor g
+         , Dom f ~ Dom g
+         , Subcategory (Cod f) Hask
+         -- , Subcategory (Cod g) Hask
+         ) => Functor (Sum f g) where
     type Dom (Sum f g) = Dom f
     type Cod (Sum f g) = Hask
     proveFunctor _ = Sub Dict
@@ -146,9 +210,12 @@ instance ( Functor f, Functor g, Dom f ~ Dom g
           p4 = proveFunctor (Proxy @g) \\ q4
 
 -- | 'Product'
-instance ( Functor f, Functor g, Dom f ~ Dom g
-         , Subcategory (Cod f) Hask, Subcategory (Cod g) Hask)
-        => Functor (Product f g) where
+instance ( Functor f
+         , Functor g
+         , Dom f ~ Dom g
+         , Subcategory (Cod f) Hask
+         -- , Subcategory (Cod g) Hask
+         ) => Functor (Product f g) where
     type Dom (Product f g) = Dom f
     type Cod (Product f g) = Hask
     proveFunctor :: Proxy (Product f g) -> Dom f a :- Hask (Product f g a)
@@ -182,11 +249,62 @@ instance ( Functor f, Functor g, Dom f ~ Dom g
           q4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
           p4 = proveFunctor (Proxy @g) \\ q4
 
+instance ( Apply f
+         , Apply g
+         , Dom f ~ Dom g
+         -- , Subcategory (Cod f) Hask
+         -- , Subcategory (Cod g) Hask
+         , Functor (Product f g)
+         ) => Apply (Product f g) where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 :: forall m a b c.
+              ( Dom (Product f g) a, Dom (Product f g) b, Dom (Product f g) c
+              , Morphism m, MorCat m ~ Dom (Product f g)
+              )
+              => a `m` (b `m` c) ->
+                  Product f g a -> Product f g b -> Product f g c
+    liftA2 f (Pair xs xs') (Pair ys ys') =
+        Pair (liftA2 f `chase` xs `chase` ys) (liftA2 f `chase` xs' `chase` ys')
+        \\ (proveFunctor (Proxy @f) \\
+            trans weaken2 (proveFunMor (Proxy @f, Proxy @m)) ::
+                Dom f a :- MorCat (FunMor f m) (f a))
+        \\ (proveFunctor (Proxy @f) \\
+            trans weaken2 (proveFunMor (Proxy @f, Proxy @m)) ::
+                Dom f b :- MorCat (FunMor f m) (f b))
+        \\ (proveFunctor (Proxy @f) \\
+            trans weaken2 (proveFunMor (Proxy @f, Proxy @m)) ::
+                Dom f c :- MorCat (FunMor f m) (f c))
+        \\ (Sub Dict \\
+            trans weaken1 (proveFunMor (Proxy @f, Proxy @m)) ::
+                () :- Morphism (FunMor f m))
+        \\ (proveFunctor (Proxy @g) \\
+            trans weaken2 (proveFunMor (Proxy @g, Proxy @m)) ::
+                Dom g a :- MorCat (FunMor g m) (g a))
+        \\ (proveFunctor (Proxy @g) \\
+            trans weaken2 (proveFunMor (Proxy @g, Proxy @m)) ::
+                Dom g b :- MorCat (FunMor g m) (g b))
+        \\ (proveFunctor (Proxy @g) \\
+            trans weaken2 (proveFunMor (Proxy @g, Proxy @m)) ::
+                Dom g c :- MorCat (FunMor g m) (g c))
+        \\ (Sub Dict \\
+            trans weaken1 (proveFunMor (Proxy @g, Proxy @m)) ::
+                () :- Morphism (FunMor g m))
+
+instance ( Applicative f
+         , Applicative g
+         , Dom f ~ Dom g
+         , Subcategory (Cod f) Hask
+         -- , Subcategory (Cod g) Hask
+         ) => Applicative (Product f g) where
+    pure :: forall a. Dom (Product f g) a => a -> Product f g a
+    pure x = Pair (pure x) (pure x)
+
 -- | 'Compose'
-instance ( Functor f, Functor g
+instance ( Functor f
+         , Functor g
          , Cod g ~ Dom f        -- TODO: Subcategory (Cod g) (Dom f)
-         , Subcategory (Cod f) Hask)
-        => Functor (Compose f g) where
+         , Subcategory (Cod f) Hask
+         ) => Functor (Compose f g) where
     type Dom (Compose f g) = Dom g
     type Cod (Compose f g) = Hask
     proveFunctor _ = Sub Dict
@@ -247,3 +365,22 @@ instance ( Functor f, Functor g
           p13 = trans p12 p3
           p14 = trans weaken1 p13
           p15 = trans weaken2 p13
+
+-- instance ( Apply f
+--          , Apply g
+--          , Cod g ~ Dom f        -- TODO: Subcategory (Cod g) (Dom f)
+--          , Subcategory (Cod f) Hask
+--          , Functor (Compose f g)
+--          ) => Apply (Compose f g) where
+--     -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+--     liftA2 f (Compose xss) (Compose yss) =
+--         Compose (liftA2 (liftA2 f) `chase` xss `chase` yss)
+-- 
+-- instance ( Applicative f
+--          , Applicative g
+--          , Cod g ~ Dom f        -- TODO: Subcategory (Cod g) (Dom f)
+--          , Subcategory (Cod f) Hask
+--          , Apply (Compose f g)
+--          ) => Applicative (Compose f g) where
+--     pure :: forall a. Dom (Compose f g) a => a -> Compose f g a
+--     pure x = Compose (pure (pure x))
