@@ -116,6 +116,7 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
         (n ~ FunMor f m) =>
         (Proxy f, Proxy m) ->
         (Morphism m, MorCat m ~ Dom f) :- (Morphism n, MorCat n ~ Cod f)
+    -- TODO: allow 'Subcategory (MorCat m) (Dom f)'
     fmap ::
         (Dom f a, Dom f b, Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
         => a `m` b -> f a `n` f b
