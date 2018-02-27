@@ -38,4 +38,4 @@ script:
 
 after_script:
   # Collect and submit coverage information
-  - shc wavetoy5 wavetoy5-test-suite
+  - shc wavetoy6 wavetoy6-test-suite
