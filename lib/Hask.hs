@@ -23,6 +23,7 @@ import Data.Semigroup hiding (Sum(..), Product(..))
 import Test.QuickCheck
 
 import Category
+import Comonoid
 
 
 
@@ -74,6 +75,9 @@ instance Functor Proxy where
     proveFunMor _ = Sub Dict
     fmap f = \Proxy -> Proxy
 
+instance Unfoldable Proxy where
+    mapUnfold f x = Proxy
+
 instance Foldable Proxy where
     foldMap f Proxy = mempty
 
@@ -93,6 +97,9 @@ instance Functor Identity where
     proveFunMor _ = Sub Dict
     fmap f = \(Identity x) -> Identity (chase f x)
 
+instance Unfoldable Identity where
+    mapUnfold f x = Identity (f x)
+
 instance Foldable Identity where
     foldMap f (Identity x) = f x
 
@@ -102,6 +109,10 @@ instance Apply Identity where
 
 instance Applicative Identity where
     pure x = Identity x
+
+instance Comonad Identity where
+    extract (Identity x) = x
+    extend f xs = Identity (f `chase` xs)
 
 -- | 'Either'
 instance Functor (Either a) where
@@ -113,6 +124,11 @@ instance Functor (Either a) where
     fmap f = \case
              Left x -> Left x
              Right y -> Right (chase f y)
+
+instance Monoid a => Unfoldable (Either a) where
+    mapUnfold f x = if counit x then Left mempty else Right (f x)
+-- instance Unfoldable (Either a) where
+--     mapUnfold f a = Right (f a)
 
 instance Foldable (Either a) where
     foldMap f (Left a) = mempty
@@ -136,6 +152,9 @@ instance Functor ((,) a) where
     proveFunMor _ = Sub Dict
     fmap f = \(x, y) -> (x, chase f y)
 
+instance Monoid a => Unfoldable ((,) a) where
+    mapUnfold f x = (mempty, f x)
+
 instance Foldable ((,) a) where
     foldMap f (a, x) = f x
 
@@ -145,6 +164,10 @@ instance Semigroup a => Apply ((,) a) where
 
 instance (Semigroup a, Monoid a) => Applicative ((,) a) where
     pure x = (mempty, x)
+
+instance Comonad ((,) a) where
+    extract (a, x) = x
+    extend f (a, x) = (a, f `chase` (a, x))
 
 -- | '(->)'
 instance Functor ((->) a) where
@@ -173,6 +196,10 @@ instance Functor [] where
              [] -> []
              (x:xs) -> chase f x : fmap f xs
 
+instance Unfoldable [] where
+    mapUnfold f x = if counit x then [] else let (x1, x2) = split x
+                                             in f x1 : mapUnfold f x2
+
 instance Foldable [] where
     foldMap f [] = mempty
     foldMap f (x:xs) = f x `mappend` foldMap f xs
@@ -184,17 +211,16 @@ instance Apply [] where
     liftA2 f _ _ = []
 
 instance Applicative [] where
-    pure x = [x]
+    pure = repeat
 
 -- | 'Sum'
 instance ( Functor f
          , Functor g
          , Dom f ~ Dom g
          , Subcategory (Cod f) Hask
-         -- , Subcategory (Cod g) Hask
          ) => Functor (Sum f g) where
     type Dom (Sum f g) = Dom f
-    type Cod (Sum f g) = Hask
+    type Cod (Sum f g) = Hask 
     proveFunctor _ = Sub Dict
     type FunMor (Sum f g) m = (->)
     proveFunMor _ = Sub Dict
@@ -240,7 +266,6 @@ instance ( Functor f
          , Functor g
          , Dom f ~ Dom g
          , Subcategory (Cod f) Hask
-         -- , Subcategory (Cod g) Hask
          ) => Functor (Product f g) where
     type Dom (Product f g) = Dom f
     type Cod (Product f g) = Hask
@@ -285,8 +310,6 @@ instance ( Foldable f
 instance ( Apply f
          , Apply g
          , Dom f ~ Dom g
-         -- , Subcategory (Cod f) Hask
-         -- , Subcategory (Cod g) Hask
          , Functor (Product f g)
          ) => Apply (Product f g) where
     -- liftA2' f = uncurry (liftA2 (curry (chase f)))
@@ -355,7 +378,6 @@ instance ( Functor f
                , Dom f (g a)
                , Dom f (g b)
                , Cod f (f (g a))
-               -- , Cod f (f (g b))
                , Morphism p
                , MorCat p ~ Cod f
                )

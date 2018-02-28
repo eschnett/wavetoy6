@@ -12,9 +12,12 @@ module Category ( CatKind
                 , MId(..)
                 , MCompose(..)
                 , Functor(..)
+                , Unfoldable(..)
                 , Foldable(..)
                 , Apply(..)
                 , Applicative(..)
+                , Comonad(..)
+                , ComonadStore(..)
                 ) where
 
 import Prelude hiding ( Foldable(..)
@@ -25,6 +28,8 @@ import Prelude hiding ( Foldable(..)
 import Data.Constraint
 import Data.Kind
 import Data.Proxy
+
+import Comonoid
 
 
 
@@ -132,6 +137,12 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
         (Dom f a, Dom f b, Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
         => a `m` b -> f a `n` f b
 
+-- | Unfoldable
+class Functor f => Unfoldable f where
+    mapUnfold :: (Comonoid a, Dom f b) => (a -> b) -> a -> f b
+    unfold :: (Comonoid a, Dom f a) => a -> f a
+    unfold = mapUnfold id
+
 -- | Foldable
 class Functor f => Foldable f where
     foldMap :: (Dom f a, Monoid b) => (a -> b) -> f a -> b
@@ -152,3 +163,28 @@ class Functor f => Apply f where
 -- | Applicative
 class Apply f => Applicative f where
     pure :: Dom f a => a -> f a
+
+-- | Comonad
+class (Functor f, Dom f ~ Cod f) => Comonad f where
+    extract :: f a -> a
+    extend :: (Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
+              => (f a `m` b) -> f a `n` f b
+    duplicate :: f a -> f (f a)
+    default duplicate :: (FunMor f (MId (Dom f)) ~ (->)) => f a -> f (f a)
+    duplicate = extend MId
+    -- duplicate' :: (Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
+    --               => Proxy m -> f a `n` f (f a)
+    -- duplicate' _ = extend MId
+
+-- | ComonadStore
+class Comonad f => ComonadStore s f | f -> s where
+    pos :: f a -> s
+    peek :: s -> f a -> a
+    peeks :: (s -> s) -> f a -> a
+    peeks f xs = peek (f (pos xs)) xs
+    seek :: s -> f a -> f a
+    seek s = peek s . duplicate
+    seeks :: (s -> s) -> f a -> f a
+    seeks f = peeks f . duplicate
+    -- experiment :: Functor g => (s -> g s) -> f a -> g a
+    -- experiment f xs = fmap (`peek` xs) (f (pos xs))
