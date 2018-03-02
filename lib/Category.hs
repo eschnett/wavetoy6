@@ -4,6 +4,7 @@ module Category ( CatKind
                 , ObjKind
                 , MorKind
                 , Category(..)
+                , chase2
                 , Subcategory(..)
                 , ProveSubcategory
                 , Object(..)
@@ -16,6 +17,7 @@ module Category ( CatKind
                 , Foldable(..)
                 , Apply(..)
                 , Applicative(..)
+                , Monad(..)
                 , Comonad(..)
                 , ComonadStore(..)
                 ) where
@@ -23,6 +25,7 @@ module Category ( CatKind
 import Prelude hiding ( Foldable(..)
                       , Functor(..)
                       , Applicative(..)
+                      , Monad(..)
                       )
 
 import Data.Constraint
@@ -90,6 +93,10 @@ class Category (MorCat m) => Morphism (m :: MorKind) where
     -- -- type FromHaskC m a b = (MorCat m a, MorCat m b)
     -- fromHask :: FromHaskC m a b => (a -> b) -> a `m` b
 
+chase2 :: (Morphism m, Morphism n, MorCat m a, MorCat n b)
+          => m a (n b c) -> a -> b -> c
+chase2 f x y = f `chase` x `chase` y
+
 class Morphism m => Discretization (m :: MorKind) where
     -- | A morphism might have an "approximate dinatural
     -- transformation" from Haskell functions
@@ -127,6 +134,7 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
     type Cod f :: CatKind
     type FunMor f (m :: MorKind) :: MorKind
     -- type FunMor f :: MorKind -> MorKind
+    -- TODO: Rename this to 'proveFunObj'?
     proveFunctor :: Proxy f -> Dom f a :- Cod f (f a)
     proveFunMor ::
         (n ~ FunMor f m)
@@ -164,17 +172,32 @@ class Functor f => Apply f where
 class Apply f => Applicative f where
     pure :: Dom f a => a -> f a
 
+-- Alternative
+-- Distributive
+-- Traversable
+
+-- | Monad
+class Applicative f => Monad f where
+    (>>=) :: (Morphism m, MorCat m ~ Dom f) => f a -> (a `m` f b) -> f b
+    -- (<=<) :: (Morphism m, MorCat m ~ Dom f)
+    --          => b `m` f c -> a `m` f b -> a `m` f c
+
+-- MonadZero, MonadPlus
+
 -- | Comonad
 class (Functor f, Dom f ~ Cod f) => Comonad f where
     extract :: f a -> a
     extend :: (Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
               => (f a `m` b) -> f a `n` f b
+    -- (=<=) :: Morphism m => (f b `m` c) -> (f a `m` b) -> (f a `m` c)
     duplicate :: f a -> f (f a)
     default duplicate :: (FunMor f (MId (Dom f)) ~ (->)) => f a -> f (f a)
     duplicate = extend MId
     -- duplicate' :: (Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
     --               => Proxy m -> f a `n` f (f a)
     -- duplicate' _ = extend MId
+
+-- ComonadApply
 
 -- | ComonadStore
 class Comonad f => ComonadStore s f | f -> s where

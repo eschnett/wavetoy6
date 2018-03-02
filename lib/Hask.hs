@@ -10,6 +10,7 @@ module Hask ( Hask
 import Prelude hiding ( Foldable(..)
                       , Functor(..)
                       , Applicative(..)
+                      , Monad(..)
                       )
 
 import Data.Constraint
@@ -88,6 +89,9 @@ instance Apply Proxy where
 instance Applicative Proxy where
     pure x = Proxy
 
+instance Monad Proxy where
+    Proxy >>= f = Proxy
+
 -- | 'Identity'
 instance Functor Identity where
     type Dom Identity = Hask
@@ -109,6 +113,9 @@ instance Apply Identity where
 
 instance Applicative Identity where
     pure x = Identity x
+
+instance Monad Identity where
+    Identity x >>= f = f `chase` x
 
 instance Comonad Identity where
     extract (Identity x) = x
@@ -143,6 +150,10 @@ instance Apply (Either a) where
 instance Applicative (Either a) where
     pure x = Right x
 
+instance Monad (Either a) where
+    Left a >>= f = Left a
+    Right x >>= f = f `chase` x
+
 -- | '(,)'
 instance Functor ((,) a) where
     type Dom ((,) a) = Hask
@@ -165,6 +176,9 @@ instance Semigroup a => Apply ((,) a) where
 instance (Semigroup a, Monoid a) => Applicative ((,) a) where
     pure x = (mempty, x)
 
+instance (Semigroup a, Monoid a) => Monad ((,) a) where
+    (a, x) >>= f = f `chase` x
+
 instance Comonad ((,) a) where
     extract (a, x) = x
     extend f (a, x) = (a, f `chase` (a, x))
@@ -184,6 +198,9 @@ instance Apply ((->) a) where
 
 instance Applicative ((->) a) where
     pure = const
+
+instance Monad ((->) a) where
+    fx >>= f = \r -> f `chase` (fx r) `chase` r
 
 -- | '[]'
 instance Functor [] where
@@ -212,6 +229,11 @@ instance Apply [] where
 
 instance Applicative [] where
     pure = repeat
+
+instance Monad [] where
+    -- xs >>= f = [y | x <- xs, y <- f `chase` x]
+    [] >>= f = []
+    (x:xs) >>= f = f `chase` x ++ (xs >>= f)
 
 -- | 'Sum'
 instance ( Functor f
@@ -354,6 +376,8 @@ instance ( Applicative f
          ) => Applicative (Product f g) where
     pure :: forall a. Dom (Product f g) a => a -> Product f g a
     pure x = Pair (pure x) (pure x)
+
+-- instance (Monad f, Monad g) => Monad (Product f g) where
 
 -- | 'Compose'
 instance ( Functor f
