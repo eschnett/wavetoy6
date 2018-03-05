@@ -71,7 +71,7 @@ instance Morphism Fun where
 instance Functor Proxy where
     type Dom Proxy = Hask
     type Cod Proxy = Hask
-    proveFunctor _ = Sub Dict
+    proveFunCod _ = Sub Dict
     type FunMor Proxy m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \Proxy -> Proxy
@@ -89,14 +89,23 @@ instance Apply Proxy where
 instance Applicative Proxy where
     pure x = Proxy
 
+instance Alt Proxy where
+    Proxy <|> Proxy = Proxy
+
+instance Alternative Proxy where
+    empty = Proxy
+
 instance Monad Proxy where
     Proxy >>= f = Proxy
+
+instance Semicomonad Proxy where
+    extend f Proxy = Proxy
 
 -- | 'Identity'
 instance Functor Identity where
     type Dom Identity = Hask
     type Cod Identity = Hask
-    proveFunctor _ = Sub Dict
+    proveFunCod _ = Sub Dict
     type FunMor Identity m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \(Identity x) -> Identity (chase f x)
@@ -117,15 +126,62 @@ instance Applicative Identity where
 instance Monad Identity where
     Identity x >>= f = f `chase` x
 
+instance Semicomonad Identity where
+    extend f xs = Identity (f `chase` xs)
+
 instance Comonad Identity where
     extract (Identity x) = x
-    extend f xs = Identity (f `chase` xs)
+
+-- | 'Maybe'
+instance Functor Maybe where
+    type Dom Maybe = Hask
+    type Cod Maybe = Hask
+    proveFunCod _ = Sub Dict
+    type FunMor Maybe m = (->)
+    proveFunMor _ = Sub Dict
+    fmap f = \case
+             Nothing -> Nothing
+             Just y -> Just (chase f y)
+
+instance Unfoldable Maybe where
+    mapUnfold f x = if counit x then Nothing else Just (f x)
+-- instance Unfoldable Maybe where
+--     mapUnfold f a = Just (f a)
+
+instance Foldable Maybe where
+    foldMap f Nothing = mempty
+    foldMap f (Just x) = f x
+
+instance Apply Maybe where
+    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2 f Nothing _ = Nothing
+    liftA2 f _ Nothing = Nothing
+    liftA2 f (Just x) (Just y) = Just (f `chase` x `chase` y)
+
+instance Applicative Maybe where
+    pure x = Just x
+
+instance Alt Maybe where
+    Nothing <|> Nothing = Nothing
+    Nothing <|> Just y = Just y
+    Just x <|> _ = Just x
+
+instance Alternative Maybe where
+    empty = Nothing
+
+instance Monad Maybe where
+    Nothing >>= f = Nothing
+    Just x >>= f = f `chase` x
+
+instance Semicomonad Maybe where
+    extend f Nothing = Nothing
+    extend f xs = Just (f `chase` xs)
 
 -- | 'Either'
 instance Functor (Either a) where
     type Dom (Either a) = Hask
     type Cod (Either a) = Hask
-    proveFunctor _ = Sub Dict
+    proveFunCod _ = Sub Dict
     type FunMor (Either a) m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \case
@@ -154,11 +210,14 @@ instance Monad (Either a) where
     Left a >>= f = Left a
     Right x >>= f = f `chase` x
 
+instance Semicomonad (Either a) where
+    extend f xs = Right (f `chase` xs)
+
 -- | '(,)'
 instance Functor ((,) a) where
     type Dom ((,) a) = Hask
     type Cod ((,) a) = Hask
-    proveFunctor _ = Sub Dict
+    proveFunCod _ = Sub Dict
     type FunMor ((,) a) m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \(x, y) -> (x, chase f y)
@@ -179,15 +238,17 @@ instance (Semigroup a, Monoid a) => Applicative ((,) a) where
 instance (Semigroup a, Monoid a) => Monad ((,) a) where
     (a, x) >>= f = f `chase` x
 
+instance Semicomonad ((,) a) where
+    extend f (a, x) = (a, f `chase` (a, x))
+
 instance Comonad ((,) a) where
     extract (a, x) = x
-    extend f (a, x) = (a, f `chase` (a, x))
 
 -- | '(->)'
 instance Functor ((->) a) where
     type Dom ((->) a) = Hask
     type Cod ((->) a) = Hask
-    proveFunctor _ = Sub Dict
+    proveFunCod _ = Sub Dict
     type FunMor ((->) a) m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \fx -> chase f . fx
@@ -202,11 +263,17 @@ instance Applicative ((->) a) where
 instance Monad ((->) a) where
     fx >>= f = \r -> f `chase` (fx r) `chase` r
 
+instance Monoid a => Semicomonad ((->) a) where
+    extend f fx = \x -> f `chase` (fx . mappend x)
+
+instance Monoid a => Comonad ((->) a) where
+    extract fx = fx `chase` mempty
+
 -- | '[]'
 instance Functor [] where
     type Dom [] = Hask
     type Cod [] = Hask
-    proveFunctor _ = Sub Dict
+    proveFunCod _ = Sub Dict
     type FunMor [] m = (->)
     proveFunMor _ = Sub Dict
     fmap f = \case
@@ -230,10 +297,19 @@ instance Apply [] where
 instance Applicative [] where
     pure = repeat
 
+instance Alt [] where
+    (<|>) = (++)
+
+instance Alternative [] where
+    empty = []
+
 instance Monad [] where
     -- xs >>= f = [y | x <- xs, y <- f `chase` x]
     [] >>= f = []
     (x:xs) >>= f = f `chase` x ++ (xs >>= f)
+
+instance Semicomonad [] where
+    extend f xs = [f `chase` xs]
 
 -- | 'Sum'
 instance ( Functor f
@@ -243,7 +319,7 @@ instance ( Functor f
          ) => Functor (Sum f g) where
     type Dom (Sum f g) = Dom f
     type Cod (Sum f g) = Hask 
-    proveFunctor _ = Sub Dict
+    proveFunCod _ = Sub Dict
     type FunMor (Sum f g) m = (->)
     proveFunMor _ = Sub Dict
     fmap ::
@@ -270,10 +346,10 @@ instance ( Functor f
 
           p1 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @f, Proxy @m))
           q2 = trans weaken2 $ proveFunMor (Proxy @f, Proxy @m)
-          p2 = proveFunctor (Proxy @f) \\ q2
+          p2 = proveFunCod (Proxy @f) \\ q2
           p3 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @g, Proxy @m))
           q4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
-          p4 = proveFunctor (Proxy @g) \\ q4
+          p4 = proveFunCod (Proxy @g) \\ q4
 
 instance ( Foldable f
          , Foldable g
@@ -283,6 +359,8 @@ instance ( Foldable f
     foldMap f (InL xs) = foldMap f xs
     foldMap f (InR ys) = foldMap f ys
 
+-- Semicomonad, Comonad
+
 -- | 'Product'
 instance ( Functor f
          , Functor g
@@ -291,8 +369,8 @@ instance ( Functor f
          ) => Functor (Product f g) where
     type Dom (Product f g) = Dom f
     type Cod (Product f g) = Hask
-    proveFunctor :: Proxy (Product f g) -> Dom f a :- Hask (Product f g a)
-    proveFunctor _ = Sub Dict
+    proveFunCod :: Proxy (Product f g) -> Dom f a :- Hask (Product f g a)
+    proveFunCod _ = Sub Dict
     type FunMor (Product f g) m = (->)
     proveFunMor _ = Sub Dict
     fmap ::
@@ -317,10 +395,10 @@ instance ( Functor f
 
           p1 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @f, Proxy @m))
           q2 = trans weaken2 $ proveFunMor (Proxy @f, Proxy @m)
-          p2 = proveFunctor (Proxy @f) \\ q2
+          p2 = proveFunCod (Proxy @f) \\ q2
           p3 = Sub Dict \\ (trans weaken1 $ proveFunMor (Proxy @g, Proxy @m))
           q4 = trans weaken2 $ proveFunMor (Proxy @g, Proxy @m)
-          p4 = proveFunctor (Proxy @g) \\ q4
+          p4 = proveFunCod (Proxy @g) \\ q4
 
 instance ( Foldable f
          , Foldable g
@@ -343,25 +421,25 @@ instance ( Apply f
                   Product f g a -> Product f g b -> Product f g c
     liftA2 f (Pair xs xs') (Pair ys ys') =
         Pair (liftA2 f `chase` xs `chase` ys) (liftA2 f `chase` xs' `chase` ys')
-        \\ (proveFunctor (Proxy @f) \\
+        \\ (proveFunCod (Proxy @f) \\
             trans weaken2 (proveFunMor (Proxy @f, Proxy @m)) ::
                 Dom f a :- MorCat (FunMor f m) (f a))
-        \\ (proveFunctor (Proxy @f) \\
+        \\ (proveFunCod (Proxy @f) \\
             trans weaken2 (proveFunMor (Proxy @f, Proxy @m)) ::
                 Dom f b :- MorCat (FunMor f m) (f b))
-        \\ (proveFunctor (Proxy @f) \\
+        \\ (proveFunCod (Proxy @f) \\
             trans weaken2 (proveFunMor (Proxy @f, Proxy @m)) ::
                 Dom f c :- MorCat (FunMor f m) (f c))
         \\ (Sub Dict \\
             trans weaken1 (proveFunMor (Proxy @f, Proxy @m)) ::
                 () :- Morphism (FunMor f m))
-        \\ (proveFunctor (Proxy @g) \\
+        \\ (proveFunCod (Proxy @g) \\
             trans weaken2 (proveFunMor (Proxy @g, Proxy @m)) ::
                 Dom g a :- MorCat (FunMor g m) (g a))
-        \\ (proveFunctor (Proxy @g) \\
+        \\ (proveFunCod (Proxy @g) \\
             trans weaken2 (proveFunMor (Proxy @g, Proxy @m)) ::
                 Dom g b :- MorCat (FunMor g m) (g b))
-        \\ (proveFunctor (Proxy @g) \\
+        \\ (proveFunCod (Proxy @g) \\
             trans weaken2 (proveFunMor (Proxy @g, Proxy @m)) ::
                 Dom g c :- MorCat (FunMor g m) (g c))
         \\ (Sub Dict \\
@@ -377,7 +455,11 @@ instance ( Applicative f
     pure :: forall a. Dom (Product f g) a => a -> Product f g a
     pure x = Pair (pure x) (pure x)
 
+-- Alt, Alternative
+
 -- instance (Monad f, Monad g) => Monad (Product f g) where
+
+-- Semicomonad?
 
 -- | 'Compose'
 instance ( Functor f
@@ -387,7 +469,7 @@ instance ( Functor f
          ) => Functor (Compose f g) where
     type Dom (Compose f g) = Dom g
     type Cod (Compose f g) = Hask
-    proveFunctor _ = Sub Dict
+    proveFunCod _ = Sub Dict
     type FunMor (Compose f g) m = (->)
     proveFunMor _ = Sub Dict
     fmap :: forall m n p a b.
@@ -428,16 +510,16 @@ instance ( Functor f
           p14 :: (Morphism m, MorCat m ~ Dom g) :- Morphism p
           p15 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat p ~ Cod f)
 
-          p1 = proveFunctor (Proxy @g)
-          p2 = proveFunctor (Proxy @g)
+          p1 = proveFunCod (Proxy @g)
+          p2 = proveFunCod (Proxy @g)
           p3 = proveFunMor (Proxy @g, Proxy @m)
           p4 = trans weaken1 p3
           p5 = trans weaken2 p3
 
-          p6 = proveFunctor (Proxy @g)
-          p7 = proveFunctor (Proxy @g)
-          p8 = proveFunctor (Proxy @f)
-          p9 = proveFunctor (Proxy @f)
+          p6 = proveFunCod (Proxy @g)
+          p7 = proveFunCod (Proxy @g)
+          p8 = proveFunCod (Proxy @f)
+          p9 = proveFunCod (Proxy @f)
           p10 = trans p8 p1
           p11 = trans p9 p2
           p12 = proveFunMor (Proxy @f, Proxy @n)
@@ -454,7 +536,7 @@ instance ( Foldable f
                => (a -> b) -> Compose f g a -> b
     foldMap f (Compose xss) = foldMap (foldMap f) xss \\ p1
         where p1 :: Dom g a :- Cod g (g a)
-              p1 = proveFunctor (Proxy @g)
+              p1 = proveFunCod (Proxy @g)
 
 instance ( Apply f
          , Apply g
@@ -496,19 +578,19 @@ instance ( Apply f
           p18 :: (Morphism m, MorCat m ~ Dom g) :- Morphism p
           p19 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat p ~ Cod f)
 
-          p1 = proveFunctor (Proxy @g)
-          p2 = proveFunctor (Proxy @g)
-          p3 = proveFunctor (Proxy @g)
+          p1 = proveFunCod (Proxy @g)
+          p2 = proveFunCod (Proxy @g)
+          p3 = proveFunCod (Proxy @g)
           p4 = proveFunMor (Proxy @g, Proxy @m)
           p5 = trans weaken1 p4
           p6 = trans weaken2 p4
 
-          p7 = proveFunctor (Proxy @g)
-          p8 = proveFunctor (Proxy @g)
-          p9 = proveFunctor (Proxy @g)
-          p10 = proveFunctor (Proxy @f)
-          p11 = proveFunctor (Proxy @f)
-          p12 = proveFunctor (Proxy @f)
+          p7 = proveFunCod (Proxy @g)
+          p8 = proveFunCod (Proxy @g)
+          p9 = proveFunCod (Proxy @g)
+          p10 = proveFunCod (Proxy @f)
+          p11 = proveFunCod (Proxy @f)
+          p12 = proveFunCod (Proxy @f)
           p13 = trans p10 p1
           p14 = trans p11 p2
           p15 = trans p12 p3
@@ -524,4 +606,8 @@ instance ( Applicative f
          ) => Applicative (Compose f g) where
     pure :: forall a. Dom (Compose f g) a => a -> Compose f g a
     pure x = Compose (pure (pure x))
-             \\ (proveFunctor (Proxy @g) :: Dom g a :- Cod g (g a))
+             \\ (proveFunCod (Proxy @g) :: Dom g a :- Cod g (g a))
+
+-- Alt, Alternative
+
+-- Semicomonad? Comonad?

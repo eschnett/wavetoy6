@@ -17,14 +17,23 @@ module Category ( CatKind
                 , Foldable(..)
                 , Apply(..)
                 , Applicative(..)
+                , Alt(..)
+                , Alternative(..)
+                , Distributive(..)
+                , Traversable(..)
                 , Monad(..)
+                , Semicomonad(..)
                 , Comonad(..)
+                , SemicomonadStore(..)
                 , ComonadStore(..)
+                , LocalSemicomonad(..)
+                , LocalComonad(..)
                 ) where
 
 import Prelude hiding ( Foldable(..)
                       , Functor(..)
                       , Applicative(..)
+                      , Traversable(..)
                       , Monad(..)
                       )
 
@@ -106,6 +115,9 @@ class Morphism m => Discretization (m :: MorKind) where
 
 data MId (k :: CatKind) a b where
     MId :: MId k a a
+deriving instance Eq (MId k a b)
+deriving instance Ord (MId k a b)
+deriving instance Show (MId k a b)
 instance Category k => Morphism (MId k) where
     type MorCat (MId k) = k
     proveChase MId = refl
@@ -115,6 +127,8 @@ instance Category k => Morphism (MId k) where
 
 data MCompose m n b a c where
     MCompose :: m b c -> n a b -> MCompose m n b a c
+                deriving (Eq, Ord, Read, Show)
+    
 instance (Morphism m, Morphism n, MorCat m ~ MorCat n)
         => Morphism (MCompose m n b) where
     type MorCat (MCompose m n b) = MorCat m
@@ -135,7 +149,7 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
     type FunMor f (m :: MorKind) :: MorKind
     -- type FunMor f :: MorKind -> MorKind
     -- TODO: Rename this to 'proveFunObj'?
-    proveFunctor :: Proxy f -> Dom f a :- Cod f (f a)
+    proveFunCod :: Proxy f -> Dom f a :- Cod f (f a)
     proveFunMor ::
         (n ~ FunMor f m)
         => (Proxy f, Proxy m)
@@ -152,6 +166,7 @@ class Functor f => Unfoldable f where
     unfold = mapUnfold id
 
 -- | Foldable
+-- E. Kmett: "Folds are closed, corepresentable profunctors"
 class Functor f => Foldable f where
     foldMap :: (Dom f a, Monoid b) => (a -> b) -> f a -> b
     fold :: (Dom f a, Monoid a) => f a -> a
@@ -172,24 +187,45 @@ class Functor f => Apply f where
 class Apply f => Applicative f where
     pure :: Dom f a => a -> f a
 
--- Alternative
--- Distributive
--- Traversable
+-- | Alt
+class Applicative f => Alt f where
+    (<|>) :: f a -> f a -> f a
+
+-- | Alternative
+class Alt f => Alternative f where
+    empty :: f a
+
+-- | Distributive
+class (Functor f, Dom f ~ Cod f) => Distributive f where
+    cotraverseMap :: (Foldable g, Morphism m)
+                     => g b `m` c -> a `m` f b -> g a -> f c
+    -- collect = cotraverseMap MId
+    -- distribute = cotraverseMap MId MId
+
+-- | Traversable
+class (Functor f, Dom f ~ Cod f) => Traversable f where
+    mapTraverse :: (Applicative g, Morphism m)
+                   => f b `m` c -> a `m` g b -> f a -> g c
+   -- traverse = mapTraverse MId
+   -- sequence = mapTraverse MId MId
 
 -- | Monad
-class Applicative f => Monad f where
+class (Applicative f, Dom f ~ Cod f) => Monad f where
     (>>=) :: (Morphism m, MorCat m ~ Dom f) => f a -> (a `m` f b) -> f b
     -- (<=<) :: (Morphism m, MorCat m ~ Dom f)
     --          => b `m` f c -> a `m` f b -> a `m` f c
 
 -- MonadZero, MonadPlus
 
--- | Comonad
-class (Functor f, Dom f ~ Cod f) => Comonad f where
-    extract :: f a -> a
+-- | Semicomonad (also called 'Extend'; see package "semigroupoids")
+class (Functor f, Dom f ~ Cod f) => Semicomonad f where
     extend :: (Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
-              => (f a `m` b) -> f a `n` f b
-    -- (=<=) :: Morphism m => (f b `m` c) -> (f a `m` b) -> (f a `m` c)
+              => f a `m` b -> f a `n` f b
+    -- default extend :: ( Morphism m, MorCat m ~ Dom f, n ~ FunMor f m
+    --                   , n ~ (->)
+    --                   ) => f a `m` b -> f a `n` f b
+    -- extend f = fmap f . duplicate
+    -- (=<=) :: Morphism m => f b `m` c -> f a `m` b -> f a `m` c
     duplicate :: f a -> f (f a)
     default duplicate :: (FunMor f (MId (Dom f)) ~ (->)) => f a -> f (f a)
     duplicate = extend MId
@@ -197,12 +233,19 @@ class (Functor f, Dom f ~ Cod f) => Comonad f where
     --               => Proxy m -> f a `n` f (f a)
     -- duplicate' _ = extend MId
 
+-- | Comonad
+class Semicomonad f => Comonad f where
+    extract :: f a -> a
+
 -- ComonadApply
 
--- | ComonadStore
-class Comonad f => ComonadStore s f | f -> s where
-    pos :: f a -> s
+-- | SemicomonadStore
+class Semicomonad f => SemicomonadStore s f | f -> s where
     peek :: s -> f a -> a
+
+-- | ComonadStore
+class (Comonad f, SemicomonadStore s f) => ComonadStore s f | f -> s where
+    pos :: f a -> s
     peeks :: (s -> s) -> f a -> a
     peeks f xs = peek (f (pos xs)) xs
     seek :: s -> f a -> f a
@@ -211,3 +254,48 @@ class Comonad f => ComonadStore s f | f -> s where
     seeks f = peeks f . duplicate
     -- experiment :: Functor g => (s -> g s) -> f a -> g a
     -- experiment f xs = fmap (`peek` xs) (f (pos xs))
+
+
+
+-- -- | Global
+-- class (Functor f, Functor (Local f)) => Global f where
+--     type Local f :: Type -> Type
+--     -- | local . global = id
+--     local :: f a -> Local f a
+--     global :: Local f a -> f a
+-- 
+-- -- | LocalComonad
+-- class (Global f, Cod (Local f) ~ Dom (Local f)) => LocalComonad f where
+--     extractL :: f a -> a
+--     extendL :: (Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
+--                => Local f a `m` b -> f a `n` f b
+--     duplicateL :: f a -> f (Local f a)
+--     default duplicateL :: (FunMor f (MId (Dom f)) ~ (->))
+--                           => f a -> f (Local f a)
+--     duplicateL = extendL MId
+-- 
+-- -- This is correct, but leads to overlapping instances
+-- -- instance (Functor f, LocalComonad f, Local f ~ f) => Comonad f where
+-- --     extract = extractL
+-- --     extend = extendL
+-- --     duplicate = duplicateL
+
+-- | LocalSemicomonad
+class (Functor f, Functor (Local f), Dom (Local f) ~ Dom f)
+        => LocalSemicomonad f where
+    type Local f :: Type -> Type
+    -- | local . global = id
+    global :: Dom f a => a -> Local f a -> f a
+    local :: Dom f a => a -> f a -> Local f a
+    extendL :: (Dom f a, Dom f b, Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
+               => Local f a `m` b -> f a `n` f b
+    duplicateL :: Dom f a => f a -> f (Local f a)
+    default duplicateL :: ( Dom f a, Dom f (Local f a)
+                          , FunMor f (MId (Dom f)) ~ (->))
+                         => f a -> f (Local f a)
+    duplicateL = extendL MId
+
+-- | LocalComonad
+class (LocalSemicomonad f, Functor (Local f), Dom (Local f) ~ Dom f)
+        => LocalComonad f where
+    extractL :: Dom f a => f a -> a

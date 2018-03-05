@@ -77,6 +77,7 @@ library:
     - validity
     - validity-vector
     - vector
+    - vector-th-unbox
   source-dirs: lib
 
 executables:
@@ -111,6 +112,7 @@ tests:
     dependencies:
       - QuickCheck
       - base
+      - constraints
       - quickcheck-instances
       - tasty
       - tasty-discover
