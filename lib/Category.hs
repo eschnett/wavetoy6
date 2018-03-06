@@ -39,6 +39,7 @@ import Prelude hiding ( Foldable(..)
 
 import Data.Constraint
 import Data.Kind
+import Data.Monoid hiding (Alt(..))
 import Data.Proxy
 
 import Comonoid
@@ -171,6 +172,8 @@ class Functor f => Foldable f where
     foldMap :: (Dom f a, Monoid b) => (a -> b) -> f a -> b
     fold :: (Dom f a, Monoid a) => f a -> a
     fold = foldMap id
+    length :: Dom f a => f a -> Int
+    length = getSum . foldMap (Sum . const 1)
 
 -- | Apply
 class Functor f => Apply f where
@@ -236,6 +239,8 @@ class (Functor f, Dom f ~ Cod f) => Semicomonad f where
 -- | Comonad
 class Semicomonad f => Comonad f where
     extract :: f a -> a
+    extract' :: (Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
+                => Proxy m -> f a `n` a
 
 -- ComonadApply
 

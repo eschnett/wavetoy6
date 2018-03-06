@@ -5,7 +5,10 @@ module FunctorSpec where
 import Prelude hiding (Functor(..))
 
 import Data.Constraint
+import Data.Functor.Compose
 import Data.Functor.Identity
+import Data.Functor.Product
+import Data.Functor.Sum
 import Data.Proxy
 
 import Test.QuickCheck
@@ -17,6 +20,7 @@ import Unboxed
 
 
 
+-- fmap id == id
 tmpl_Functor_id :: forall f a.
                    (Functor f
                    , Dom f a
@@ -27,6 +31,7 @@ tmpl_Functor_id :: forall f a.
                    ) => f a -> Property
 tmpl_Functor_id xs = fmap MId `chase` xs === (MId @(Cod f)) `chase` xs
 
+-- fmap (f . g) == fmap f . fmap g
 tmpl_Functor_comp :: forall f m n mn a b c.
                      ( Functor f
                      , Morphism m, MorCat m ~ Dom f
@@ -50,41 +55,67 @@ tmpl_Functor_comp f g xs =
                  (Morphism mn, MorCat mn ~ Dom f)
                  :- (Morphism (FunMor f mn), MorCat (FunMor f mn) ~ Cod f))
 
-prop_Functor_id_Proxy :: Proxy A -> Property
-prop_Functor_id_Proxy = tmpl_Functor_id
 
-prop_Functor_comp_Proxy :: Fun B C -> Fun A B -> Proxy A -> Property
-prop_Functor_comp_Proxy = tmpl_Functor_comp
 
-prop_Functor_id_Identity :: Identity A -> Property
-prop_Functor_id_Identity = tmpl_Functor_id
+prop_Proxy_Functor_id :: Proxy A -> Property
+prop_Proxy_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_Identity :: Fun B C -> Fun A B -> Identity A -> Property
-prop_Functor_comp_Identity = tmpl_Functor_comp
+prop_Proxy_Functor_comp :: Fun B C -> Fun A B -> Proxy A -> Property
+prop_Proxy_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_Maybe :: Maybe A -> Property
-prop_Functor_id_Maybe = tmpl_Functor_id
+prop_Identity_Functor_id :: Identity A -> Property
+prop_Identity_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_Maybe :: Fun B C -> Fun A B -> Maybe A -> Property
-prop_Functor_comp_Maybe = tmpl_Functor_comp
+prop_Identity_Functor_comp :: Fun B C -> Fun A B -> Identity A -> Property
+prop_Identity_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_Either :: Either Int A -> Property
-prop_Functor_id_Either = tmpl_Functor_id
+prop_Maybe_Functor_id :: Maybe A -> Property
+prop_Maybe_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_Either :: Fun B C -> Fun A B -> Either Int A -> Property
-prop_Functor_comp_Either = tmpl_Functor_comp
+prop_Maybe_Functor_comp :: Fun B C -> Fun A B -> Maybe A -> Property
+prop_Maybe_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_Tuple :: (Int, A) -> Property
-prop_Functor_id_Tuple = tmpl_Functor_id
+prop_Either_Functor_id :: Either Int A -> Property
+prop_Either_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_Tuple :: Fun B C -> Fun A B -> (Int, A) -> Property
-prop_Functor_comp_Tuple = tmpl_Functor_comp
+prop_Either_Functor_comp :: Fun B C -> Fun A B -> Either Int A -> Property
+prop_Either_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_List :: [A] -> Property
-prop_Functor_id_List = tmpl_Functor_id
+prop_Tuple_Functor_id :: (Int, A) -> Property
+prop_Tuple_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_List :: Fun B C -> Fun A B -> [A] -> Property
-prop_Functor_comp_List = tmpl_Functor_comp
+prop_Tuple_Functor_comp :: Fun B C -> Fun A B -> (Int, A) -> Property
+prop_Tuple_Functor_comp = tmpl_Functor_comp
+
+prop_List_Functor_id :: [A] -> Property
+prop_List_Functor_id = tmpl_Functor_id
+
+prop_List_Functor_comp :: Fun B C -> Fun A B -> [A] -> Property
+prop_List_Functor_comp = tmpl_Functor_comp
+
+
+
+type FA = Either Int
+type FB = (,) Double
+type FC = []
+
+prop_Sum_Functor_id :: Sum FA FB A -> Property
+prop_Sum_Functor_id = tmpl_Functor_id
+
+prop_Sum_Functor_comp :: Fun B C -> Fun A B -> Sum FA FB A -> Property
+prop_Sum_Functor_comp = tmpl_Functor_comp
+
+prop_Product_Functor_id :: Product FA FB A -> Property
+prop_Product_Functor_id = tmpl_Functor_id
+
+prop_Product_Functor_comp :: Fun B C -> Fun A B -> Product FA FB A -> Property
+prop_Product_Functor_comp = tmpl_Functor_comp
+
+prop_Compose_Functor_id :: Compose FA FB A -> Property
+prop_Compose_Functor_id = tmpl_Functor_id
+
+prop_Compose_Functor_comp :: Fun B C -> Fun A B -> Compose FA FB A -> Property
+prop_Compose_Functor_comp = tmpl_Functor_comp
 
 
 
@@ -93,41 +124,41 @@ type UB = Double
 type UC = Char
 type N = 10
 
-prop_Functor_id_Vector :: Vector A -> Property
-prop_Functor_id_Vector = tmpl_Functor_id
+prop_Vector_Functor_id :: Vector A -> Property
+prop_Vector_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_Vector :: Fun B C -> Fun A B -> Vector A -> Property
-prop_Functor_comp_Vector = tmpl_Functor_comp
+prop_Vector_Functor_comp :: Fun B C -> Fun A B -> Vector A -> Property
+prop_Vector_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_UVector :: UVector UA -> Property
-prop_Functor_id_UVector = tmpl_Functor_id
+prop_UVector_Functor_id :: UVector UA -> Property
+prop_UVector_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_UVector ::
+prop_UVector_Functor_comp ::
     (UB -#> UC) -> (UA -#> UB) -> UVector UA -> Property
-prop_Functor_comp_UVector = tmpl_Functor_comp
+prop_UVector_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_NVector :: NVector N A -> Property
-prop_Functor_id_NVector = tmpl_Functor_id
+prop_NVector_Functor_id :: NVector N A -> Property
+prop_NVector_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_NVector :: Fun B C -> Fun A B -> NVector N A -> Property
-prop_Functor_comp_NVector = tmpl_Functor_comp
+prop_NVector_Functor_comp :: Fun B C -> Fun A B -> NVector N A -> Property
+prop_NVector_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_NUVector :: NUVector N UA -> Property
-prop_Functor_id_NUVector = tmpl_Functor_id
+prop_NUVector_Functor_id :: NUVector N UA -> Property
+prop_NUVector_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_NUVector ::
+prop_NUVector_Functor_comp ::
     (UB -#> UC) -> (UA -#> UB) -> NUVector N UA -> Property
-prop_Functor_comp_NUVector = tmpl_Functor_comp
+prop_NUVector_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_CNVector :: CNVector N A -> Property
-prop_Functor_id_CNVector = tmpl_Functor_id
+prop_CNVector_Functor_id :: CNVector N A -> Property
+prop_CNVector_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_CNVector :: Fun B C -> Fun A B -> CNVector N A -> Property
-prop_Functor_comp_CNVector = tmpl_Functor_comp
+prop_CNVector_Functor_comp :: Fun B C -> Fun A B -> CNVector N A -> Property
+prop_CNVector_Functor_comp = tmpl_Functor_comp
 
-prop_Functor_id_CNUVector :: CNUVector N UA -> Property
-prop_Functor_id_CNUVector = tmpl_Functor_id
+prop_CNUVector_Functor_id :: CNUVector N UA -> Property
+prop_CNUVector_Functor_id = tmpl_Functor_id
 
-prop_Functor_comp_CNUVector ::
+prop_CNUVector_Functor_comp ::
     (UB -#> UC) -> (UA -#> UB) -> CNUVector N UA -> Property
-prop_Functor_comp_CNUVector = tmpl_Functor_comp
+prop_CNUVector_Functor_comp = tmpl_Functor_comp

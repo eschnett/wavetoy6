@@ -21,6 +21,8 @@ import Prelude hiding ( Foldable(..)
 import qualified Prelude as P
 
 import Data.Constraint
+import Data.Validity
+import Data.Validity.Vector ()
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as U
 import Data.Vector.Unboxed.Deriving
@@ -70,19 +72,20 @@ instance (Unboxed a, Unboxed b, QC.Arbitrary (QC.Fun a b))
 
 
 newtype Vector a = Vector (V.Vector a)
-    deriving (Eq, Ord, Read, Show, QC.Arbitrary)
+    deriving (Eq, Ord, Read, Show, QC.Arbitrary, Validity)
 
 newtype UVector a = UVector (U.Vector a)
     deriving (Eq, Ord, Read, Show, QC.Arbitrary)
+deriving instance Validity (U.Vector a) => Validity (UVector a)
 
 newtype NList (n :: Nat) a = NList { getNList :: [a] }
-    deriving (Eq, Ord, Read, Show, QC.Arbitrary)
+    deriving (Eq, Ord, Read, Show)
 
 newtype NVector (n :: Nat) a = NVector (Vector a)
-    deriving (Eq, Ord, Read, Show, QC.Arbitrary)
+    deriving (Eq, Ord, Read, Show)
 
 newtype NUVector (n :: Nat) a = NUVector (UVector a)
-    deriving (Eq, Ord, Read, Show, QC.Arbitrary)
+    deriving (Eq, Ord, Read, Show)
 
 data CNVector (n :: Nat) a = CNVector !Int (NVector n a)
     deriving (Eq, Ord, Read, Show)
@@ -92,25 +95,158 @@ data CNUVector (n :: Nat) a = CNUVector !Int (NUVector n a)
 
 
 
+instance (KnownNat n, Validity [a]) => Validity (NList n a) where
+    validate (NList xs) =
+        mconcat
+        [ length xs == (intVal @n) <?@> "List has correct length"
+        , xs <?!> "List"
+        ]
+
+instance (KnownNat n, Validity (Vector a)) => Validity (NVector n a) where
+    validate (NVector xs) =
+        mconcat
+        [ length xs == (intVal @n) <?@> "Vector has correct length"
+        , xs <?!> "Vector"
+        ]
+
+instance (KnownNat n, Unboxed a, Validity (UVector a))
+        => Validity (NUVector n a) where
+    validate (NUVector xs) =
+        mconcat
+        [ length xs == (intVal @n) <?@> "Vector has correct length"
+        , xs <?!> "Vector"
+        ]
+
+instance (KnownNat n, Validity (NVector n a)) => Validity (CNVector n a) where
+    validate (CNVector i xs) =
+        mconcat
+        [ 0 <= i && i < (intVal @n) <?@> "Position is legal"
+        , xs <?!> "Vector"
+        ]
+
+instance (KnownNat n, Validity (NUVector n a)) => Validity (CNUVector n a) where
+    validate (CNUVector i xs) =
+        mconcat
+        [ 0 <= i && i < (intVal @n) <?@> "Position is legal"
+        , xs <?!> "Vector"
+        ]
+
+
+
+instance (KnownNat n, QC.Arbitrary a) => QC.Arbitrary (NList n a) where
+    arbitrary = do xs <- QC.vector (intVal @n)
+                   P.return (NList xs)
+    shrink (NList xs) = [ NList xs'
+                        | xs' <- QC.shrink xs
+                        , length xs' == (intVal @n)]
+
+instance (KnownNat n, QC.Arbitrary a) => QC.Arbitrary (NVector n a) where
+    arbitrary = f <$> QC.arbitrary
+        where f :: NList n a -> NVector n a
+              f (NList xs) = NVector (Vector (V.fromList xs))
+    shrink = P.fmap f . QC.shrink . g
+        where f :: NList n a -> NVector n a
+              f (NList xs) = NVector (Vector (V.fromList xs))
+              g (NVector (Vector xs)) = NList (V.toList xs)
+
+instance (KnownNat n, Unboxed a, QC.Arbitrary a)
+        => QC.Arbitrary (NUVector n a) where
+    arbitrary = f <$> QC.arbitrary
+        where f :: NList n a -> NUVector n a
+              f (NList xs) = NUVector (UVector (U.fromList xs))
+    shrink = P.fmap f . QC.shrink . g
+        where f :: NList n a -> NUVector n a
+              f (NList xs) = NUVector (UVector (U.fromList xs))
+              g (NUVector (UVector xs)) = NList (U.toList xs)
+
 instance (KnownNat n, 1 <= n, QC.Arbitrary a)
         => QC.Arbitrary (CNVector n a) where
     arbitrary = do i <- QC.choose (0, intVal @n - 1)
-                   ys <- QC.vector (intVal @n)
-                   let xs = V.fromListN (intVal @n) ys
-                   P.return (CNVector i (NVector (Vector xs)))
-    shrink (CNVector i (NVector (Vector xs))) =
-        [ CNVector i' (NVector (Vector (V.fromListN (intVal @n) ys')))
-        | (i', ys') <- QC.shrink (i, V.toList xs)]
+                   xs <- QC.arbitrary
+                   P.return (CNVector i xs)
+    shrink (CNVector i xs) = [CNVector i' xs' | (i', xs') <- QC.shrink (i, xs)]
 
 instance (KnownNat n, 1 <= n, Unboxed a, QC.Arbitrary a)
         => QC.Arbitrary (CNUVector n a) where
     arbitrary = do i <- QC.choose (0, intVal @n - 1)
-                   ys <- QC.vector (intVal @n)
-                   let xs = U.fromListN (intVal @n) ys
-                   P.return (CNUVector i (NUVector (UVector xs)))
-    shrink (CNUVector i (NUVector (UVector xs))) =
-        [ CNUVector i' (NUVector (UVector (U.fromListN (intVal @n) ys')))
-        | (i', ys') <- QC.shrink (i, U.toList xs)]
+                   xs <- QC.arbitrary
+                   P.return (CNUVector i xs)
+    shrink (CNUVector i xs) =
+        [CNUVector i' xs' | (i', xs') <- QC.shrink (i, xs)]
+
+
+
+instance QC.CoArbitrary a => QC.CoArbitrary (Vector a) where
+    coarbitrary (Vector xs) = QC.coarbitrary (V.toList xs)
+
+instance (U.Unbox a, QC.CoArbitrary a) => QC.CoArbitrary (UVector a) where
+    coarbitrary (UVector xs) = QC.coarbitrary (U.toList xs)
+
+instance QC.CoArbitrary a => QC.CoArbitrary (NList n a) where
+    coarbitrary (NList xs) = QC.coarbitrary xs
+
+instance QC.CoArbitrary a => QC.CoArbitrary (NVector n a) where
+    coarbitrary (NVector xs) = QC.coarbitrary xs
+
+instance (U.Unbox a, QC.CoArbitrary a) => QC.CoArbitrary (NUVector n a) where
+    coarbitrary (NUVector xs) = QC.coarbitrary xs
+
+instance QC.CoArbitrary a => QC.CoArbitrary (CNVector n a) where
+    coarbitrary (CNVector i xs) = QC.coarbitrary (i, xs)
+
+instance (U.Unbox a, QC.CoArbitrary a) => QC.CoArbitrary (CNUVector n a) where
+    coarbitrary (CNUVector i xs) = QC.coarbitrary (i, xs)
+
+
+
+instance QC.Function [a] => QC.Function (Vector a) where
+    function = QC.functionMap f g
+        where f (Vector xs) = V.toList xs
+              g xs = Vector (V.fromList xs)
+
+instance (U.Unbox a, QC.Function [a]) => QC.Function (UVector a) where
+    function = QC.functionMap f g
+        where f (UVector xs) = U.toList xs
+              g xs = UVector (U.fromList xs)
+
+instance {-# OVERLAPPING #-} QC.Function (NList 0 a) where
+    function = QC.functionMap (const ()) (const (NList []))
+
+instance {-# OVERLAPPING #-}
+        (1 <= n, QC.Function a, QC.Function (NList (n - 1) a))
+        => QC.Function (NList n a) where
+    function = QC.functionMap f g
+        where f :: NList n a -> (a, NList (n-1) a)
+              f (NList (x:xs)) = (x, NList xs)
+              f (NList []) = undefined
+              g (x, NList xs) = NList (x:xs)
+
+instance QC.Function (NList n a) => QC.Function (NVector n a) where
+    function = QC.functionMap f g
+        where f :: NVector n a -> NList n a
+              f (NVector (Vector xs)) = NList (V.toList xs)
+              g (NList xs) = NVector (Vector (V.fromList xs))
+
+instance (U.Unbox a, QC.Function (NList n a))
+        => QC.Function (NUVector n a) where
+    function = QC.functionMap f g
+        where f :: NUVector n a -> NList n a
+              f (NUVector (UVector xs)) = NList (U.toList xs)
+              g (NList xs) = NUVector (UVector (U.fromList xs))
+
+instance (KnownNat n, QC.Function (NVector n a))
+        => QC.Function (CNVector n a) where
+    function = QC.functionMap f g
+        where f :: CNVector n a -> (Int, NVector n a)
+              f (CNVector i xs) = (i, xs)
+              g (i, xs) = CNVector (i `mod` (intVal @n)) xs
+
+instance (KnownNat n, QC.Function (NUVector n a))
+        => QC.Function (CNUVector n a) where
+    function = QC.functionMap f g
+        where f :: CNUVector n a -> (Int, NUVector n a)
+              f (CNUVector i xs) = (i, xs)
+              g (i, xs) = CNUVector (i `mod` (intVal @n)) xs
 
 
 
@@ -272,10 +408,10 @@ instance (KnownNat n, 1 <= n) => Applicative (CNUVector n) where
 
 
 
+-- TODO: rotate?
 instance Semicomonad Vector where
     extend f xs = Vector (V.singleton (f `chase` xs))
 
--- TODO: rotate?
 instance KnownNat n => Semicomonad (NList n) where
     extend f xs = pure (f `chase` xs)
 
@@ -291,6 +427,7 @@ instance (KnownNat n, 1 <= n) => Semicomonad (CNVector n) where
 
 instance (KnownNat n, 1 <= n) => Comonad (CNVector n) where
     extract (CNVector i (NVector (Vector xs))) = xs V.! i
+    extract' _ = extract
 
 -- | Unboxed arrays are not comonadic! They are not endofunctors,
 -- since they cannot contain other unboxed arrays, and hence are

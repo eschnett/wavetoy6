@@ -131,6 +131,7 @@ instance Semicomonad Identity where
 
 instance Comonad Identity where
     extract (Identity x) = x
+    extract' _ = extract
 
 -- | 'Maybe'
 instance Functor Maybe where
@@ -243,6 +244,7 @@ instance Semicomonad ((,) a) where
 
 instance Comonad ((,) a) where
     extract (a, x) = x
+    extract' _ = extract
 
 -- | '(->)'
 instance Functor ((->) a) where
