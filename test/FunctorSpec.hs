@@ -4,6 +4,7 @@ module FunctorSpec where
 
 import Prelude hiding (Functor(..))
 
+import Data.Complex
 import Data.Constraint
 import Data.Functor.Compose
 import Data.Functor.Identity
@@ -15,8 +16,12 @@ import Test.QuickCheck
 import Test.QuickCheck.Instances()
 import Test.QuickCheck.Poly
 
+import CNVector
 import Category
+import Functor
+import NVector
 import Unboxed
+import Vector
 
 
 
@@ -121,7 +126,7 @@ prop_Compose_Functor_comp = tmpl_Functor_comp
 
 type UA = Int
 type UB = Double
-type UC = Char
+type UC = Complex Double
 type N = 10
 
 prop_Vector_Functor_id :: Vector A -> Property

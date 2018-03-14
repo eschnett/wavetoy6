@@ -2,10 +2,11 @@
 
 module HaskSpec where
 
-import Test.QuickCheck
-import Test.QuickCheck.Poly
+-- import Test.QuickCheck
+-- import Test.QuickCheck.Poly
 
-import Category
+-- import Category
+-- import Hask
 
 
 

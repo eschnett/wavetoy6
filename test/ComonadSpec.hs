@@ -6,23 +6,21 @@ module ComonadSpec where
 
 import Prelude hiding (Functor(..))
 
--- import Data.Constraint
-import Data.Functor.Compose
+import Data.Default
 import Data.Functor.Const
-import Data.Functor.Product
-import Data.Functor.Sum
 import Data.Functor.Identity
-import qualified Data.Vector as V
 import Data.Proxy
 
 import Test.QuickCheck
-import Test.QuickCheck.Function
-import Test.QuickCheck.Instances()
 import Test.QuickCheck.Poly
 
+import CNVector
 import Category
-import Hask
-import Unboxed
+import Comonad
+import Functor
+import NVector
+import Vec
+import Vector
 
 
 
@@ -49,7 +47,7 @@ tmpl_Semicomonad_comm :: forall f m n mn a b c.
                          , Morphism (FunMor f n), MorCat (FunMor f n) ~ Cod f
                          , Morphism (FunMor f mn), MorCat (FunMor f mn) ~ Cod f
                          , Cod f (f a)
-                         ) => m (f b) c -> n (f a) b -> f a -> Property
+                         ) => f b `m` c -> f a `n` b -> f a -> Property
 tmpl_Semicomonad_comm f g xs =
     (extend f `MCompose` extend g) `chase` xs ===
         (extend (f `MCompose` extend g)) `chase` xs
@@ -79,9 +77,35 @@ tmpl_Comonad_apply :: forall f m a b.
                       , Eq b, Show b
                       -- TODO: prove the ones below
                       , Cod f (f a)
-                      ) => m (f a) b -> f a -> Property
+                      ) => f a `m` b -> f a -> Property
+-- TODO: add UFun constructors here for 'extract\'' and 'extend'?
 tmpl_Comonad_apply f xs =
     (extract' (Proxy @m) `MCompose` extend f) `chase` xs === f `chase` xs
+
+
+
+-- CompactSemicomonad
+
+-- restrict . expand = id
+tmpl_CompactSemicomonad_restrict :: forall f g a.
+                                    ( CompactSemicomonad g f
+                                    , Dom f a
+                                    , Default a
+                                    , Eq (g a), Show (g a)
+                                    ) => Proxy f -> g a -> Property
+tmpl_CompactSemicomonad_restrict _ xs =
+    (restrict . (expand :: g a -> f a)) xs === xs
+
+-- -- (expand . restrict) . (expand . restrict) = expand . restrict
+-- tmpl_CompactSemicomonad_expand :: forall f g a.
+--                                   ( CompactSemicomonad g f
+--                                   , Dom f a
+--                                   , Default a
+--                                   , Eq (f a), Show (f a)
+--                                   ) => Proxy g -> f a -> Property
+-- tmpl_CompactSemicomonad_expand _ xs =
+--     let ys = ((expand :: g a -> f a) . restrict) xs
+--     in ((expand :: g a -> f a) . restrict) ys === ys
 
 
 
@@ -158,6 +182,16 @@ type FC = []
 
 
 
+-- instance Default A where def = A def
+-- instance Default B where def = B def
+-- instance Default C where def = C def
+
+-- instance Num A
+-- instance Num B
+-- instance Num C
+
+
+
 type UA = Int
 type UB = Double
 type UC = Char
@@ -186,3 +220,13 @@ prop_CNVector_Comonad_id = tmpl_Comonad_id (Proxy @(->))
 
 prop_CNVector_Comonad_apply :: Fun (CNVector N A) B -> CNVector N A -> Property
 prop_CNVector_Comonad_apply = tmpl_Comonad_apply
+
+
+
+prop_CNUVector_CompactSemicomonad_restrict ::
+    Proxy (CNUVector N) -> (UVec3 N) UA -> Property
+prop_CNUVector_CompactSemicomonad_restrict = tmpl_CompactSemicomonad_restrict
+
+-- prop_CNUVector_CompactSemicomonad_expand ::
+--     Proxy (UVec3 N) -> CNUVector N UA -> Property
+-- prop_CNUVector_CompactSemicomonad_expand = tmpl_CompactSemicomonad_expand

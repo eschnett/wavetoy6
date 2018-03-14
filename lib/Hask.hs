@@ -24,7 +24,9 @@ import Data.Semigroup hiding (Sum(..), Product(..))
 import Test.QuickCheck
 
 import Category
+import Comonad
 import Comonoid
+import Functor
 
 
 
@@ -74,7 +76,7 @@ instance Functor Proxy where
     proveFunCod _ = Sub Dict
     type FunMor Proxy m = (->)
     proveFunMor _ = Sub Dict
-    fmap f = \Proxy -> Proxy
+    fmap f Proxy = Proxy
 
 instance Unfoldable Proxy where
     mapUnfold f x = Proxy
@@ -83,10 +85,11 @@ instance Foldable Proxy where
     foldMap f Proxy = mempty
 
 instance Apply Proxy where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2' f = uncurry (liftA2 (curry (chase f . CProduct))) . getCProduct
     liftA2 f Proxy Proxy = Proxy
 
 instance Applicative Proxy where
+    pure' _ = pure
     pure x = Proxy
 
 instance Alt Proxy where
@@ -108,7 +111,7 @@ instance Functor Identity where
     proveFunCod _ = Sub Dict
     type FunMor Identity m = (->)
     proveFunMor _ = Sub Dict
-    fmap f = \(Identity x) -> Identity (chase f x)
+    fmap f (Identity x) = Identity (chase f x)
 
 instance Unfoldable Identity where
     mapUnfold f x = Identity (f x)
@@ -117,10 +120,11 @@ instance Foldable Identity where
     foldMap f (Identity x) = f x
 
 instance Apply Identity where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2' f = uncurry (liftA2 (curry (chase f . CProduct))) . getCProduct
     liftA2 f (Identity x) (Identity y) = Identity (f `chase` x `chase` y)
 
 instance Applicative Identity where
+    pure' _ = pure
     pure x = Identity x
 
 instance Monad Identity where
@@ -140,26 +144,24 @@ instance Functor Maybe where
     proveFunCod _ = Sub Dict
     type FunMor Maybe m = (->)
     proveFunMor _ = Sub Dict
-    fmap f = \case
-             Nothing -> Nothing
-             Just y -> Just (chase f y)
+    fmap f Nothing = Nothing
+    fmap f (Just x) = Just (chase f x)
 
 instance Unfoldable Maybe where
     mapUnfold f x = if counit x then Nothing else Just (f x)
--- instance Unfoldable Maybe where
---     mapUnfold f a = Just (f a)
 
 instance Foldable Maybe where
     foldMap f Nothing = mempty
     foldMap f (Just x) = f x
 
 instance Apply Maybe where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2' f = uncurry (liftA2 (curry (chase f . CProduct))) . getCProduct
     liftA2 f Nothing _ = Nothing
     liftA2 f _ Nothing = Nothing
     liftA2 f (Just x) (Just y) = Just (f `chase` x `chase` y)
 
 instance Applicative Maybe where
+    pure' _ = pure
     pure x = Just x
 
 instance Alt Maybe where
@@ -185,26 +187,24 @@ instance Functor (Either a) where
     proveFunCod _ = Sub Dict
     type FunMor (Either a) m = (->)
     proveFunMor _ = Sub Dict
-    fmap f = \case
-             Left x -> Left x
-             Right y -> Right (chase f y)
+    fmap f (Left a) = Left a
+    fmap f (Right x) = Right (chase f x)
 
 instance Monoid a => Unfoldable (Either a) where
     mapUnfold f x = if counit x then Left mempty else Right (f x)
--- instance Unfoldable (Either a) where
---     mapUnfold f a = Right (f a)
 
 instance Foldable (Either a) where
     foldMap f (Left a) = mempty
     foldMap f (Right x) = f x
 
 instance Apply (Either a) where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2' f = uncurry (liftA2 (curry (chase f . CProduct))) . getCProduct
     liftA2 f (Left a) _ = Left a
     liftA2 f _ (Left b) = Left b
     liftA2 f (Right x) (Right y) = Right (f `chase` x `chase` y)
 
 instance Applicative (Either a) where
+    pure' _ = pure
     pure x = Right x
 
 instance Monad (Either a) where
@@ -221,7 +221,7 @@ instance Functor ((,) a) where
     proveFunCod _ = Sub Dict
     type FunMor ((,) a) m = (->)
     proveFunMor _ = Sub Dict
-    fmap f = \(x, y) -> (x, chase f y)
+    fmap f (x, y) = (x, chase f y)
 
 instance Monoid a => Unfoldable ((,) a) where
     mapUnfold f x = (mempty, f x)
@@ -230,10 +230,11 @@ instance Foldable ((,) a) where
     foldMap f (a, x) = f x
 
 instance Semigroup a => Apply ((,) a) where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2' f = uncurry (liftA2 (curry (chase f . CProduct))) . getCProduct
     liftA2 f (a, x) (b, y) = (a <> b, f `chase` x `chase` y)
 
 instance (Semigroup a, Monoid a) => Applicative ((,) a) where
+    pure' _ = pure
     pure x = (mempty, x)
 
 instance (Semigroup a, Monoid a) => Monad ((,) a) where
@@ -253,13 +254,14 @@ instance Functor ((->) a) where
     proveFunCod _ = Sub Dict
     type FunMor ((->) a) m = (->)
     proveFunMor _ = Sub Dict
-    fmap f = \fx -> chase f . fx
+    fmap f fx = chase f . fx
 
 instance Apply ((->) a) where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
+    liftA2' f = uncurry (liftA2 (curry (chase f . CProduct))) . getCProduct
     liftA2 f fx fy x = f `chase` fx x `chase` fy x
 
 instance Applicative ((->) a) where
+    pure' _ = pure
     pure = const
 
 instance Monad ((->) a) where
@@ -270,6 +272,7 @@ instance Monoid a => Semicomonad ((->) a) where
 
 instance Monoid a => Comonad ((->) a) where
     extract fx = fx `chase` mempty
+    extract' _ = extract
 
 -- | '[]'
 instance Functor [] where
@@ -278,25 +281,28 @@ instance Functor [] where
     proveFunCod _ = Sub Dict
     type FunMor [] m = (->)
     proveFunMor _ = Sub Dict
-    fmap f = \case
-             [] -> []
-             (x:xs) -> chase f x : fmap f xs
+    fmap f [] = []
+    fmap f (x:xs) = chase f x : fmap f xs
 
 instance Unfoldable [] where
-    mapUnfold f x = if counit x then [] else let (x1, x2) = split x
-                                             in f x1 : mapUnfold f x2
+    mapUnfold f x = case split1 x of
+                      Nothing -> []
+                      Just (x1, x2) -> f x1 : mapUnfold f x2
+    fromList = id
 
 instance Foldable [] where
     foldMap f [] = mempty
     foldMap f (x:xs) = f x `mappend` foldMap f xs
+    toList = id
 
 -- | This is zippy
 instance Apply [] where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
-    liftA2 f (x:xs) (y:ys) = f `chase` x `chase` y : liftA2 f xs ys
+    liftA2' f = uncurry (liftA2 (curry (chase f . CProduct))) . getCProduct
+    liftA2 f (x:xs) (y:ys) = chase2 f x y : liftA2 f xs ys
     liftA2 f _ _ = []
 
 instance Applicative [] where
+    pure' _ = pure
     pure = repeat
 
 instance Alt [] where
@@ -335,9 +341,8 @@ instance ( Functor f
                , MorCat (FunMor g m) (g a)
                )
               => Sum f g a -> Sum f g b
-          r = \case
-              InL xs -> InL (chase (fmap f) xs)
-              InR ys -> InR (chase (fmap f) ys)
+          r (InL xs) = InL (chase (fmap f) xs)
+          r (InR ys) = InR (chase (fmap f) ys)
 
           p1 :: () :- Morphism (FunMor f m)
           q2 :: (Morphism m, MorCat m ~ Dom f) :- (MorCat (FunMor f m) ~ Cod f)
@@ -386,7 +391,7 @@ instance ( Functor f
                , MorCat (FunMor g m) (g a)
                )
               => Product f g a -> Product f g b
-          r = \(Pair xs ys) -> Pair (chase (fmap f) xs) (chase (fmap f) ys)
+          r (Pair xs ys) = Pair (chase (fmap f) xs) (chase (fmap f) ys)
 
           p1 :: () :- Morphism (FunMor f m)
           q2 :: (Morphism m, MorCat m ~ Dom f) :- (MorCat (FunMor f m) ~ Cod f)
@@ -414,12 +419,13 @@ instance ( Apply f
          , Dom f ~ Dom g
          , Functor (Product f g)
          ) => Apply (Product f g) where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
-    liftA2 :: forall m a b c.
+    liftA2' = undefined         -- TODO
+    liftA2 :: forall m n a b c.
               ( Dom (Product f g) a, Dom (Product f g) b, Dom (Product f g) c
               , Morphism m, MorCat m ~ Dom (Product f g)
+              , Morphism n, MorCat n ~ Dom (Product f g)
               )
-              => a `m` (b `m` c) ->
+              => a `m` (b `n` c) ->
                   Product f g a -> Product f g b -> Product f g c
     liftA2 f (Pair xs xs') (Pair ys ys') =
         Pair (liftA2 f `chase` xs `chase` ys) (liftA2 f `chase` xs' `chase` ys')
@@ -447,6 +453,30 @@ instance ( Apply f
         \\ (Sub Dict \\
             trans weaken1 (proveFunMor (Proxy @g, Proxy @m)) ::
                 () :- Morphism (FunMor g m))
+        \\ (proveFunCod (Proxy @f) \\
+            trans weaken2 (proveFunMor (Proxy @f, Proxy @n)) ::
+                Dom f a :- MorCat (FunMor f n) (f a))
+        \\ (proveFunCod (Proxy @f) \\
+            trans weaken2 (proveFunMor (Proxy @f, Proxy @n)) ::
+                Dom f b :- MorCat (FunMor f n) (f b))
+        \\ (proveFunCod (Proxy @f) \\
+            trans weaken2 (proveFunMor (Proxy @f, Proxy @n)) ::
+                Dom f c :- MorCat (FunMor f n) (f c))
+        \\ (Sub Dict \\
+            trans weaken1 (proveFunMor (Proxy @f, Proxy @n)) ::
+                () :- Morphism (FunMor f n))
+        \\ (proveFunCod (Proxy @g) \\
+            trans weaken2 (proveFunMor (Proxy @g, Proxy @n)) ::
+                Dom g a :- MorCat (FunMor g n) (g a))
+        \\ (proveFunCod (Proxy @g) \\
+            trans weaken2 (proveFunMor (Proxy @g, Proxy @n)) ::
+                Dom g b :- MorCat (FunMor g n) (g b))
+        \\ (proveFunCod (Proxy @g) \\
+            trans weaken2 (proveFunMor (Proxy @g, Proxy @n)) ::
+                Dom g c :- MorCat (FunMor g n) (g c))
+        \\ (Sub Dict \\
+            trans weaken1 (proveFunMor (Proxy @g, Proxy @n)) ::
+                () :- Morphism (FunMor g n))
 
 instance ( Applicative f
          , Applicative g
@@ -454,6 +484,7 @@ instance ( Applicative f
          , Subcategory (Cod f) Hask
          -- , Subcategory (Cod g) Hask
          ) => Applicative (Product f g) where
+    pure' _ = pure
     pure :: forall a. Dom (Product f g) a => a -> Product f g a
     pure x = Pair (pure x) (pure x)
 
@@ -490,7 +521,7 @@ instance ( Functor f
                , MorCat p ~ Cod f
                )
                => Compose f g a -> Compose f g b
-          r = \(Compose xss) -> Compose (chase (fmap (fmap f)) xss)
+          r (Compose xss) = Compose (chase (fmap (fmap f)) xss)
 
           p1 :: Dom g a :- Cod g (g a)
           p2 :: Dom g b :- Cod g (g b)
@@ -545,24 +576,34 @@ instance ( Apply f
          , Dom f ~ Cod g        -- TODO: Subcategory (Cod g) (Dom f)
          , Functor (Compose f g)
          ) => Apply (Compose f g) where
-    -- liftA2' f = uncurry (liftA2 (curry (chase f)))
-    liftA2 :: forall m n p a b c.
-              ( Dom g a, Dom g b, Dom g c, Morphism m, MorCat m ~ Dom g
-              , n ~ FunMor g m, p ~ FunMor f n
+    liftA2' f = undefined       -- TODO
+    liftA2 :: forall m m' n n' p p' a b c.
+              ( Dom g a, Dom g b, Dom g c
+              , Morphism m, MorCat m ~ Dom g
+              , Morphism m', MorCat m' ~ Dom g
+              , n ~ FunMor g m
+              , n' ~ FunMor g m'
+              , p ~ FunMor f n
+              , p' ~ FunMor f n'
               )
-             => a `m` (b `m` c) ->
+             => a `m` (b `m'` c) ->
                  Compose f g a -> Compose f g b -> Compose f g c
     liftA2 f (Compose xss) (Compose yss) =
         Compose (liftA2 (liftA2 f) `chase` xss `chase` yss)
-            \\ p5 \\ p6 \\ p7 \\ p8 \\ p9 \\ p13 \\ p14 \\ p15 \\ p18 \\ p19
+            \\ p5 \\ p5' \\ p6 \\ p6'
+            \\ p7 \\ p8 \\ p9 \\ p13 \\ p14 \\ p15 \\ p18 \\ p18' \\ p19 \\ p19'
         where
           p1 :: Dom g a :- Cod g (g a)
           p2 :: Dom g b :- Cod g (g b)
           p3 :: Dom g c :- Cod g (g c)
           p4 :: (Morphism m, MorCat m ~ Dom g)
                 :- (Morphism n, MorCat n ~ Cod g)
+          p4' :: (Morphism m', MorCat m' ~ Dom g)
+                :- (Morphism n', MorCat n' ~ Cod g)
           p5 :: (Morphism m, MorCat m ~ Dom g) :- Morphism n
+          p5' :: (Morphism m', MorCat m' ~ Dom g) :- Morphism n'
           p6 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat n ~ Cod g)
+          p6' :: (Morphism m', MorCat m' ~ Dom g) :- (MorCat n' ~ Cod g)
 
           p7 :: Dom g a :- Dom f (g a)
           p8 :: Dom g b :- Dom f (g b)
@@ -575,17 +616,26 @@ instance ( Apply f
           p15 :: Dom g c :- Cod f (f (g c))
           p16 :: (Morphism n, MorCat n ~ Dom f)
                  :- (Morphism p, MorCat p ~ Cod f)
+          p16' :: (Morphism n', MorCat n' ~ Dom f)
+                 :- (Morphism p', MorCat p' ~ Cod f)
           p17 :: (Morphism m, MorCat m ~ Dom g)
                  :- (Morphism p, MorCat p ~ Cod f)
+          p17' :: (Morphism m', MorCat m' ~ Dom g)
+                 :- (Morphism p', MorCat p' ~ Cod f)
           p18 :: (Morphism m, MorCat m ~ Dom g) :- Morphism p
+          p18' :: (Morphism m', MorCat m' ~ Dom g) :- Morphism p'
           p19 :: (Morphism m, MorCat m ~ Dom g) :- (MorCat p ~ Cod f)
+          p19' :: (Morphism m', MorCat m' ~ Dom g) :- (MorCat p' ~ Cod f)
 
           p1 = proveFunCod (Proxy @g)
           p2 = proveFunCod (Proxy @g)
           p3 = proveFunCod (Proxy @g)
           p4 = proveFunMor (Proxy @g, Proxy @m)
+          p4' = proveFunMor (Proxy @g, Proxy @m')
           p5 = trans weaken1 p4
+          p5' = trans weaken1 p4'
           p6 = trans weaken2 p4
+          p6' = trans weaken2 p4'
 
           p7 = proveFunCod (Proxy @g)
           p8 = proveFunCod (Proxy @g)
@@ -597,15 +647,20 @@ instance ( Apply f
           p14 = trans p11 p2
           p15 = trans p12 p3
           p16 = proveFunMor (Proxy @f, Proxy @n)
+          p16' = proveFunMor (Proxy @f, Proxy @n')
           p17 = trans p16 p4
+          p17' = trans p16' p4'
           p18 = trans weaken1 p17
+          p18' = trans weaken1 p17'
           p19 = trans weaken2 p17
+          p19' = trans weaken2 p17'
 
 instance ( Applicative f
          , Applicative g
          , Dom f ~ Cod g        -- TODO: Subcategory (Cod g) (Dom f)
          , Apply (Compose f g)
          ) => Applicative (Compose f g) where
+    pure' _ = pure
     pure :: forall a. Dom (Compose f g) a => a -> Compose f g a
     pure x = Compose (pure (pure x))
              \\ (proveFunCod (Proxy @g) :: Dom g a :- Cod g (g a))

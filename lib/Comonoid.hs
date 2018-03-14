@@ -8,6 +8,7 @@ module Comonoid ( Cosemigroup(..)
 
 
 
+import Data.Bifunctor
 import Data.Monoid as M
 import Data.Proxy
 
@@ -16,7 +17,8 @@ import Data.Proxy
 class Cosemigroup w where
     split1 :: w -> Maybe (w, w)
     default split1 :: Comonoid w => w -> Maybe (w, w)
-    split1 = Just . split
+    -- split1 = Just . split
+    split1 w = if counit w then Nothing else Just (split w)
 
 class Cosemigroup w => Comonoid w where
     -- In a 'Comonad', this is 'extract'
@@ -27,13 +29,14 @@ class Cosemigroup w => Comonoid w where
     -- In a 'Comonad', this is 'duplicate'
     -- We could have both 'lsplit' and 'rsplit', akin to 'foldl' and 'foldr'
     split :: w -> (w, w)
-    split' :: w -> Maybe (w, w)
-    split' w = if counit w then Nothing else Just (split w)
+    -- split' :: w -> Maybe (w, w)
+    -- split' w = if counit w then Nothing else Just (split w)
+
 
 
 -- Main rules:
 -- - Don't define a Cosemigroup that is never splittable
--- - Don't define a Cosemigroup trivially based on a Monoid
+-- - Don't define a Cosemigroup that is trivially based on a Monoid
 
 instance Cosemigroup ()
 instance Comonoid () where
@@ -60,8 +63,7 @@ instance Monoid a => Comonoid (Either a b) where
 
 instance Cosemigroup [a]
 instance Comonoid [a] where
-    counit [] = True
-    counit (x:xs) = False
+    counit = null
     split [] = ([], [])
     split (x:xs) = ([x], xs)
 
@@ -124,8 +126,3 @@ data Tree a = Leaf a | Branch (Tree a) (Tree a)
 instance Cosemigroup (Tree a) where
     split1 (Leaf x) = Nothing
     split1 (Branch l r) = Just (l, r)
-
-
-
-bimap :: (a -> s) -> (b -> t) -> (a, b) -> (s, t)
-bimap f g (x, y) = (f x, g y)

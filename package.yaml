@@ -64,6 +64,7 @@ default-extensions:
   - TypeOperators
   # more controversial?
   - AllowAmbiguousTypes
+  - PackageImports
   - PolyKinds
   - TypeInType
 
@@ -71,12 +72,14 @@ library:
   dependencies:
     - QuickCheck
     - base
+    - bifunctors
     - constraints
-    # - math-functions
+    - data-default
     - quickcheck-instances
     - validity
     - validity-vector
     - vector
+    # - vector-space
     - vector-th-unbox
   source-dirs: lib
 
@@ -113,6 +116,7 @@ tests:
       - QuickCheck
       - base
       - constraints
+      - data-default
       - quickcheck-instances
       - tasty
       - tasty-discover
