@@ -3,8 +3,7 @@
 
 |Build Status| |Coverage Status|
 
-A progression of WaveToy implementations in Haskell. This is step 3,
-where we allow different represenations for functions.
+A progression of WaveToy implementations in Haskell.
 
 Problem description
 -------------------
@@ -32,5 +31,5 @@ Build instructions
 
 .. |Build Status| image:: https://travis-ci.org/eschnett/wavetoy6.svg?branch=master
    :target: https://travis-ci.org/eschnett/wavetoy6
-.. |Coverage Status| image:: https://coveralls.io/repos/github/eschnett/wavetoy6/badge.svg
-   :target: https://coveralls.io/github/eschnett/wavetoy6
+.. |Coverage Status| image:: https://coveralls.io/repos/github/eschnett/wavetoy6/badge.svg?branch=master
+   :target: https://coveralls.io/github/eschnett/wavetoy6?branch=master
