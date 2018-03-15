@@ -103,11 +103,11 @@ instance Comonoid [a] where
 
 
 
-instance (Num a, Ord a) => Cosemigroup (M.Sum a)
-instance (Num a, Ord a) => Comonoid (M.Sum a) where
-    split (M.Sum x) = if | x > 0 -> (M.Sum 1, M.Sum (x - 1))
-                         | x < 0 -> (M.Sum (-1), M.Sum (x + 1))
-                         | otherwise -> (M.Sum 0, M.Sum x)
+instance (Num a, Ord a) => Cosemigroup (Sum a)
+instance (Num a, Ord a) => Comonoid (Sum a) where
+    split (Sum x) = if | x > 0 -> (Sum 1, Sum (x - 1))
+                       | x < 0 -> (Sum (-1), Sum (x + 1))
+                       | otherwise -> (Sum 0, Sum x)
 
 
 
@@ -129,8 +129,10 @@ data Counted a = Counted { getCount :: Int, getCounted :: a }
                  deriving (Eq, Ord, Read, Show)
 instance Comonoid a => Cosemigroup (Counted a)
 instance Comonoid a => Comonoid (Counted a) where
-    counit (Counted n x) = n == 0
-    split (Counted n x) = bimap (Counted 1) (Counted (n - 1)) (split x)
+    counit (Counted n x) = counit (Sum n)
+    split (Counted n x) =
+        let (Sum n1, Sum n2) = split (Sum n)
+        in bimap (Counted n1) (Counted n2) (split x)
 
 newtype Forever a = Forever { getForever :: a }
     deriving (Eq, Ord, Read, Show)

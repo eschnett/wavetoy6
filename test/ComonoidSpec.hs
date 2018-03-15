@@ -1,11 +1,12 @@
 module ComonoidSpec where
 
+import Prelude as P
+
 import Data.Monoid hiding ((<>))
 import Data.Proxy
 import Data.Semigroup
 
 import Test.QuickCheck
-import Test.QuickCheck.Poly
 
 import Comonoid
 import Functor
@@ -13,27 +14,38 @@ import Hask()
 
 
 
-instance Semigroup A where
-    A a <> A b = A (getSum (Sum a <> Sum b))
-instance Monoid A where
-    mempty = A (getSum mempty)
-    mappend = (<>)
+-- instance Semigroup A where
+--     A a <> A b = A (getSum (Sum a <> Sum b))
+-- instance Monoid A where
+--     mempty = A (getSum mempty)
+--     mappend = (<>)
+-- 
+-- instance Cosemigroup A where
+-- instance Comonoid A where
+--     counit (A a) = a == 0
+--     split (A a) = (A 1, A (a - 1))
+-- 
+-- instance Semigroup B where
+--     B a <> B b = B (getSum (Sum a <> Sum b))
+-- instance Monoid B where
+--     mempty = B (getSum mempty)
+--     mappend = (<>)
+-- 
+-- instance Cosemigroup B where
+-- instance Comonoid B where
+--     counit (B a) = a == 0
+--     split (B a) = (B 1, B (a - 1))
 
-instance Cosemigroup A where
-instance Comonoid A where
-    counit (A a) = a == 0
-    split (A a) = (A 1, A (a - 1))
-
-instance Semigroup B where
-    B a <> B b = B (getSum (Sum a <> Sum b))
-instance Monoid B where
-    mempty = B (getSum mempty)
-    mappend = (<>)
-
-instance Cosemigroup B where
-instance Comonoid B where
-    counit (B a) = a == 0
-    split (B a) = (B 1, B (a - 1))
+newtype A = A (Sum Integer)
+    deriving ( Eq, Ord, Read, Show, Monoid, Num, Semigroup
+             , Arbitrary
+             , Cosemigroup, Comonoid
+             )
+newtype B = B (Sum Integer)
+    deriving ( Eq, Ord, Read, Show, Monoid, Num, Semigroup
+             , Arbitrary
+             , Cosemigroup, Comonoid
+             )
 
 
 
@@ -103,4 +115,9 @@ prop_CountDown_Cosemigroup (NonNegative n) =
 
 prop_Counted_Cosemigroup :: NonNegative Int -> A -> Property
 prop_Counted_Cosemigroup (NonNegative n) x =
-    unfold (Counted n x) === replicate n (Counted 1 (A 1))
+    unfold (Counted n x) ===
+           take n (mapUnfold (Counted 1 . getForever) (Forever x))
+
+prop_Forever_Cosemigroup :: NonNegative Int -> A -> Property
+prop_Forever_Cosemigroup (NonNegative n) x =
+    P.length (take n (unfold (Forever x))) === n

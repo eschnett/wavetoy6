@@ -12,6 +12,7 @@ import Test.QuickCheck
 import Test.QuickCheck.Poly
 
 import Category
+import Comonad
 import Functor
 import Hask
 
@@ -51,11 +52,29 @@ prop_Proxy_Functor_id = law_Functor_id
 prop_Proxy_Functor_comp :: Fun B C -> Fun A B -> Proxy A -> Property
 prop_Proxy_Functor_comp = law_Functor_comp
 
+prop_Proxy_Semicomonad_comm ::
+    Fun (Proxy B) C -> Fun (Proxy A) B -> Proxy A -> Property
+prop_Proxy_Semicomonad_comm = law_Semicomonad_comm
+
+
+
 prop_Identity_Functor_id :: Identity A -> Property
 prop_Identity_Functor_id = law_Functor_id
 
 prop_Identity_Functor_comp :: Fun B C -> Fun A B -> Identity A -> Property
 prop_Identity_Functor_comp = law_Functor_comp
+
+prop_Identity_Semicomonad_comm ::
+    Fun (Identity B) C -> Fun (Identity A) B -> Identity A -> Property
+prop_Identity_Semicomonad_comm = law_Semicomonad_comm
+
+prop_Identity_Comonad_id :: Identity A -> Property
+prop_Identity_Comonad_id = law_Comonad_id (Proxy @(->))
+
+prop_Identity_Comonad_apply :: Fun (Identity A) B -> Identity A -> Property
+prop_Identity_Comonad_apply = law_Comonad_apply
+
+
 
 prop_Maybe_Functor_id :: Maybe A -> Property
 prop_Maybe_Functor_id = law_Functor_id
@@ -63,11 +82,23 @@ prop_Maybe_Functor_id = law_Functor_id
 prop_Maybe_Functor_comp :: Fun B C -> Fun A B -> Maybe A -> Property
 prop_Maybe_Functor_comp = law_Functor_comp
 
+prop_Maybe_Semicomonad_comm ::
+    Fun (Maybe B) C -> Fun (Maybe A) B -> Maybe A -> Property
+prop_Maybe_Semicomonad_comm = law_Semicomonad_comm
+
+
+
 prop_Either_Functor_id :: Either Int A -> Property
 prop_Either_Functor_id = law_Functor_id
 
 prop_Either_Functor_comp :: Fun B C -> Fun A B -> Either Int A -> Property
 prop_Either_Functor_comp = law_Functor_comp
+
+prop_Either_Semicomonad_comm ::
+    Fun (Either Int B) C -> Fun (Either Int A) B -> Either Int A -> Property
+prop_Either_Semicomonad_comm = law_Semicomonad_comm
+
+
 
 prop_Tuple_Functor_id :: (Int, A) -> Property
 prop_Tuple_Functor_id = law_Functor_id
@@ -75,11 +106,38 @@ prop_Tuple_Functor_id = law_Functor_id
 prop_Tuple_Functor_comp :: Fun B C -> Fun A B -> (Int, A) -> Property
 prop_Tuple_Functor_comp = law_Functor_comp
 
+prop_Tuple_Semicomonad_comm ::
+    Fun (Int, B) C -> Fun (Int, A) B -> (Int, A) -> Property
+prop_Tuple_Semicomonad_comm = law_Semicomonad_comm
+
+prop_Tuple_Comonad_id :: (Int, A) -> Property
+prop_Tuple_Comonad_id = law_Comonad_id (Proxy @(->))
+
+prop_Tuple_Comonad_apply :: Fun (Int, A) B -> (Int, A) -> Property
+prop_Tuple_Comonad_apply = law_Comonad_apply
+
+
+
+-- prop_Function_Semicomonad_comm ::
+--     Fun (Fun Int B) C -> Fun (Fun Int A) B -> Fun Int A -> Property
+-- prop_Function_Semicomonad_comm = law_Semicomonad_comm
+
+-- prop_Function_Comonad_id :: Fun Int A -> Property
+-- prop_Function_Comonad_id = law_Comonad_id (Proxy @(->))
+
+
+
 prop_List_Functor_id :: [A] -> Property
 prop_List_Functor_id = law_Functor_id
 
 prop_List_Functor_comp :: Fun B C -> Fun A B -> [A] -> Property
 prop_List_Functor_comp = law_Functor_comp
+
+prop_List_Semicomonad_comm ::
+    Fun [B] C -> Fun [A] B -> [A] -> Property
+prop_List_Semicomonad_comm = law_Semicomonad_comm
+
+
 
 type FA = Either Int
 type FB = (,) Double
@@ -91,11 +149,15 @@ prop_Sum_Functor_id = law_Functor_id
 prop_Sum_Functor_comp :: Fun B C -> Fun A B -> Sum FA FB A -> Property
 prop_Sum_Functor_comp = law_Functor_comp
 
+
+
 prop_Product_Functor_id :: Product FA FB A -> Property
 prop_Product_Functor_id = law_Functor_id
 
 prop_Product_Functor_comp :: Fun B C -> Fun A B -> Product FA FB A -> Property
 prop_Product_Functor_comp = law_Functor_comp
+
+
 
 prop_Compose_Functor_id :: Compose FA FB A -> Property
 prop_Compose_Functor_id = law_Functor_id
