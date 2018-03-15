@@ -8,7 +8,8 @@ import Data.Constraint
 import Data.Default
 
 import qualified Test.QuickCheck as QC
-import qualified Test.QuickCheck.Instances ()
+import qualified Test.QuickCheck.Instances()
+import qualified Test.QuickCheck.Poly as QC
 
 import Category
 
@@ -50,3 +51,9 @@ instance (Default a, Default b, QC.Arbitrary (QC.Fun a b))
     arbitrary = NQCFun <$> QC.arbitrary
     shrink (NQCFun f) = NQCFun <$> QC.shrink f
     shrink f = undefined
+
+
+
+instance Default QC.A where def = QC.A def
+instance Default QC.B where def = QC.B def
+instance Default QC.C where def = QC.C def

@@ -1,4 +1,6 @@
 module Functor ( Functor(..)
+               , law_Functor_id
+               , law_Functor_comp
                , Unfoldable(..)
                , Foldable(..)
                , Apply(..)
@@ -20,6 +22,8 @@ import Prelude hiding ( Foldable(..)
 import Data.Constraint
 import Data.Monoid hiding (Alt(..))
 import Data.Proxy
+
+import qualified Test.QuickCheck as QC
 
 import Category
 import Comonoid
@@ -43,12 +47,44 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
         (Dom f a, Dom f b, Morphism m, MorCat m ~ Dom f, n ~ FunMor f m)
         => a `m` b -> f a `n` f b
 
--- class (forall a b. (Cod f dom (f a), Cod f dom (f b)))
---         => Functor f (dom :: CatKind) where
---     type Dom f dom = dom :: CatKind
---     type Dom f dom = dom
---     type Cod f dom :: CatKind
---     fmap :: (Dom f a, Dom f b) => (a -> b) -> f a -> f b
+-- fmap id == id
+law_Functor_id :: forall f a.
+                   (Functor f
+                   , Dom f a
+                   , Cod f (f a)
+                   , Morphism (FunMor f (MId (Dom f)))
+                   , MorCat (FunMor f (MId (Dom f))) (f a)
+                   , Eq (f a), Show (f a)
+                   ) => f a -> QC.Property
+law_Functor_id xs =
+    fmap MId `chase` xs QC.=== (MId :: MId (Cod f) (f a) (f a)) `chase` xs
+
+-- fmap (f . g) == fmap f . fmap g
+law_Functor_comp :: forall f m n mn a b c.
+                     ( Functor f
+                     , Morphism m, MorCat m ~ Dom f
+                     , Morphism n, MorCat n ~ Dom f
+                     , mn ~ MCompose m n b
+                     , Dom f a
+                     , Dom f b
+                     , Dom f c
+                     , Eq (f c), Show (f c)
+                     ) => m b c -> n a b -> f a -> QC.Property
+law_Functor_comp f g xs =
+    fmap (f `MCompose` g) `chase` xs
+         QC.=== (fmap f `MCompose` fmap g) `chase` xs
+         \\ (proveFunCod Proxy :: Dom f a :- Cod f (f a))
+         \\ (proveFunMor (Proxy @f, Proxy @m) ::
+                 (Morphism m, MorCat m ~ Dom f)
+                 :- (Morphism (FunMor f m), MorCat (FunMor f m) ~ Cod f))
+         \\ (proveFunMor (Proxy @f, Proxy @n) ::
+                 (Morphism n, MorCat n ~ Dom f)
+                 :- (Morphism (FunMor f n), MorCat (FunMor f n) ~ Cod f))
+         \\ (proveFunMor (Proxy @f, Proxy @mn) ::
+                 (Morphism mn, MorCat mn ~ Dom f)
+                 :- (Morphism (FunMor f mn), MorCat (FunMor f mn) ~ Cod f))
+
+
 
 -- | Unfoldable
 class Functor f => Unfoldable f where

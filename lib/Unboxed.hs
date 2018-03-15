@@ -6,6 +6,8 @@ module Unboxed ( Unboxed
                , type (-#>)(..)
                ) where
 
+import Prelude hiding (Functor(..))
+
 import Data.Constraint
 import Data.Default
 import qualified Data.Vector.Unboxed as U
@@ -16,6 +18,7 @@ import qualified Test.QuickCheck as QC
 import Category
 -- import Numeric
 import Default()
+import Functor
 
 
 
@@ -83,3 +86,13 @@ instance (Unboxed a, Unboxed b, QC.Arbitrary (QC.Fun a b))
     arbitrary = UQCFun <$> QC.arbitrary
     shrink (UQCFun f) = UQCFun <$> QC.shrink f
     shrink f = undefined
+
+
+
+instance Unboxed a => Functor ((*#*) a) where
+    type Dom ((*#*) a) = Unboxed
+    type Cod ((*#*) a) = Unboxed
+    type FunMor ((*#*) a) m = (-#>)
+    proveFunCod _ = Sub Dict
+    proveFunMor _ = Sub Dict
+    fmap f = UFun (\(CProduct (a, x)) -> CProduct (a, f `chase` x))

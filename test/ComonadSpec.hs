@@ -7,7 +7,6 @@ module ComonadSpec where
 import Prelude hiding (Functor(..))
 
 import Data.Default
-import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Proxy
 
@@ -21,15 +20,6 @@ import Functor
 import NVector
 import Vec
 import Vector
-
-
-
--- TODO: declare (or find!) this elsewhere
-instance Function a => Function (Identity a) where
-    function = functionMap runIdentity Identity
-
-instance Function a => Function (Const a b) where
-    function = functionMap getConst Const
 
 
 
@@ -181,10 +171,6 @@ type FC = []
 -- Compose
 
 
-
--- instance Default A where def = A def
--- instance Default B where def = B def
--- instance Default C where def = C def
 
 -- instance Num A
 -- instance Num B

@@ -1,16 +1,20 @@
 module Comonoid ( Cosemigroup(..)
+                , law_Cosemigroup_inv
                 , Comonoid(..)
+                , law_Comonoid_counit
+                , law_Comonoid_inv
                 , Counter(..)
                 , CountDown(..)
                 , Counted(..)
                 , Forever(..)
                 ) where
 
-
-
 import Data.Bifunctor
 import Data.Monoid as M
 import Data.Proxy
+import Data.Semigroup as S
+
+import qualified Test.QuickCheck as QC
 
 
 
@@ -31,6 +35,24 @@ class Cosemigroup w => Comonoid w where
     split :: w -> (w, w)
     -- split' :: w -> Maybe (w, w)
     -- split' w = if counit w then Nothing else Just (split w)
+
+-- If there is a Semigroup, then it must be the converse of the Cosemigroup
+law_Cosemigroup_inv :: (Cosemigroup w, Semigroup w, Eq w, Show w)
+                       => w -> QC.Property
+law_Cosemigroup_inv x =
+    x QC.=== case split1 x of
+               Nothing -> x
+               (Just (y, z)) -> y S.<> z
+
+-- 'counit' must be true for and only for a unit element
+law_Comonoid_counit :: (Comonoid w, Eq w) => w -> QC.Property
+law_Comonoid_counit w = counit w QC.=== (split w == (w, w))
+
+-- If there is a Monoid, then it must be the converse of the Comonoid
+law_Comonoid_inv :: (Comonoid w, Monoid w, Eq w, Show w) => w -> QC.Property
+law_Comonoid_inv x = x QC.=== let (y, z) = split x in y `mappend` z
+
+-- The Semigroup associativity implies co-associativity for the Cosemigroup
 
 
 
@@ -55,11 +77,23 @@ instance Comonoid (Maybe a) where
     split Nothing = (Nothing, Nothing)
     split (Just x) = (Just x, Nothing)
 
-instance Monoid a => Cosemigroup (Either a b)
-instance Monoid a => Comonoid (Either a b) where
-    counit (Left x) = True
-    counit (Right y) = False
-    split xs = (xs, Left mempty)
+-- Either is not a Monoid. (Then why is it a Semigroup?)
+-- instance Monoid a => Cosemigroup (Either a b)
+-- instance Monoid a => Comonoid (Either a b) where
+--     counit (Left x) = True
+--     counit (Right y) = False
+--     split xs = (xs, Left mempty)
+
+instance (Cosemigroup a, Cosemigroup b) => Cosemigroup (a, b) where
+    split1 (x, y) =
+        case (split1 x, split1 y) of
+          (Just (x1, x2), Just (y1, y2)) -> Just ((x1, y1), (x2, y2))
+          _ -> Nothing
+instance (Comonoid a, Comonoid b) => Comonoid (a, b) where
+    counit (x, y) = counit x && counit y
+    split (x, y) = let (x1, x2) = split x
+                       (y1, y2) = split y
+                   in ((x1, y1), (x2, y2))
 
 instance Cosemigroup [a]
 instance Comonoid [a] where
@@ -90,13 +124,6 @@ instance Cosemigroup CountDown
 instance Comonoid CountDown where
     counit (CountDown n) = n == 0
     split (CountDown n) = (CountDown n, CountDown (n - 1))
-
-instance (Comonoid a, Comonoid b) => Cosemigroup (a, b)
-instance (Comonoid a, Comonoid b) => Comonoid (a, b) where
-    counit (x, y) = counit y
-    split (x, y) = let (x1, x2) = split x
-                       (y1, y2) = split y
-                   in ((x1, y1), (x2, y2))
 
 data Counted a = Counted { getCount :: Int, getCounted :: a }
                  deriving (Eq, Ord, Read, Show)

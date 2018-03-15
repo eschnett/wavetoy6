@@ -15,13 +15,14 @@ import Prelude hiding ( Foldable(..)
 
 import Data.Constraint
 import Data.Functor.Compose
+import Data.Functor.Const
 import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Sum
 import Data.Proxy
 import Data.Semigroup hiding (Sum(..), Product(..))
 
-import Test.QuickCheck
+import qualified Test.QuickCheck as QC
 
 import Category
 import Comonad
@@ -61,11 +62,11 @@ instance Category k => Subcategory Impossible k where
 
 
 -- | 'QuickCheck' instance
-instance Morphism Fun where
-    type MorCat Fun = Hask
-    proveChase :: Fun a b -> Hask a :- Hask b
+instance Morphism QC.Fun where
+    type MorCat QC.Fun = Hask
+    proveChase :: QC.Fun a b -> Hask a :- Hask b
     proveChase f = Sub Dict
-    chase = applyFun
+    chase = QC.applyFun
 
 
 
@@ -668,3 +669,12 @@ instance ( Applicative f
 -- Alt, Alternative
 
 -- Semicomonad? Comonad?
+
+
+
+-- TODO: declare (or find!) this elsewhere
+instance QC.Function a => QC.Function (Identity a) where
+    function = QC.functionMap runIdentity Identity
+
+instance QC.Function a => QC.Function (Const a b) where
+    function = QC.functionMap getConst Const

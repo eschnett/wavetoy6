@@ -12,8 +12,15 @@ module Category ( CatKind
                 , CSum(..)
                 , Morphism(..)
                 , Discretization(..)
+                , law_Discretization_inv
+                , law_Discretization_approx
                 , MId(..)
                 , MCompose(..)
+                , law_MId_id
+                , law_MCompose_compose
+                , law_MCompose_left_id
+                , law_MCompose_right_id
+                , law_MCompose_assoc
                 ) where
 
 import Data.Biapplicative
@@ -21,6 +28,9 @@ import Data.Bifunctor()
 import Data.Constraint
 import Data.Default
 import Data.Kind
+import Data.Proxy
+
+import qualified Test.QuickCheck as QC
 
 
 
@@ -73,13 +83,25 @@ class Object (o :: ObjKind) where
 
 -- | Products
 newtype CProduct (k :: CatKind) a b = CProduct { getCProduct :: (a, b) }
-    deriving (Eq, Ord, Read, Show, Bifunctor, Biapplicative, Default)
+    deriving ( Eq, Ord, Read, Show
+             , QC.Arbitrary, QC.CoArbitrary
+             , Bifunctor, Biapplicative, Default
+             )
+
+instance QC.Function (a, b) => QC.Function (CProduct k a b) where
+    function = QC.functionMap getCProduct CProduct
 
 
 
 -- | Sums
 newtype CSum (k :: CatKind) a b = CSum { getCSum :: Either a b }
-    deriving (Eq, Ord, Read, Show, Bifunctor)
+    deriving ( Eq, Ord, Read, Show
+             , QC.Arbitrary, QC.CoArbitrary
+             , Bifunctor
+             )
+
+instance QC.Function (Either a b) => QC.Function (CSum k a b) where
+    function = QC.functionMap getCSum CSum
 
 
 
@@ -99,8 +121,28 @@ chase2 f x y = f `chase` x `chase` y
 
 class Morphism m => Discretization (m :: MorKind) where
     -- | A morphism might have an "approximate dinatural
-    -- transformation" from Haskell functions
+    -- transformation" from Haskell functions. This also defines an
+    -- adjoint functor pair.
     discretize :: (MorCat m a, MorCat m b) => (a -> b) -> a `m` b
+
+-- | discretize . chase == id
+law_Discretization_inv :: forall m a b.
+                          ( Discretization m
+                          , MorCat m a
+                          , MorCat m b
+                          , Eq b, Show b
+                          ) => a `m` b -> a -> QC.Property
+law_Discretization_inv f x =
+    discretize @m (chase f) `chase` x QC.=== f `chase` x
+
+-- | chase . discretize `approx` id
+law_Discretization_approx :: forall m a b.
+                             ( Discretization m
+                             , MorCat m a
+                             , MorCat m b
+                             ) => Proxy m -> (a -> b) -> a ->
+                            (b -> b -> QC.Property) -> QC.Property
+law_Discretization_approx _ f x cmp = (chase . discretize @m) f x `cmp` f x
 
 
 
@@ -130,3 +172,52 @@ instance (Morphism m, Morphism n, MorCat m ~ MorCat n)
     -- type FromHaskC (MCompose m n b) a c =
     --     (b ~ c, FromHaskC m b c, FromHaskC n a b)
     -- fromHask f = MCompose (fromHask id) (fromHask f)
+
+-- MId == id
+law_MId_id :: forall k a.
+              ( Category k
+              , k a
+              , Eq a, Show a
+              ) => Proxy k -> a -> QC.Property
+law_MId_id _ x = (MId :: MId k a a) `chase` x QC.=== x
+
+-- f `MCompose` g == f . g
+law_MCompose_compose :: ( Morphism m
+                        , Morphism n
+                        , k ~ MorCat m
+                        , k ~ MorCat n
+                        , k a, k b
+                        , Eq c, Show c
+                        ) => b `m` c -> a `n` b -> a -> QC.Property
+law_MCompose_compose f g x =
+    MCompose f g `chase` x QC.=== (chase f . chase g) x
+
+-- MId `MCompose` f == f
+law_MCompose_left_id :: ( Morphism m
+                        , k ~ MorCat m
+                        , k a
+                        , Eq b, Show b
+                        ) => a `m` b -> a -> QC.Property
+law_MCompose_left_id f x = (MId `MCompose` f) `chase` x QC.=== f `chase` x
+
+-- f `MCompose` MId == f
+law_MCompose_right_id :: ( Morphism m
+                         , k ~ MorCat m
+                         , k a
+                         , Eq b, Show b
+                         ) => a `m` b -> a -> QC.Property
+law_MCompose_right_id f x = (f `MCompose` MId) `chase` x QC.=== f `chase` x
+
+-- (f . g) . h == f . (g . h)
+law_MCompose_assoc :: ( Morphism m
+                      , Morphism n
+                      , Morphism p
+                      , k ~ MorCat m
+                      , k ~ MorCat n
+                      , k ~ MorCat p
+                      , k a
+                      , Eq d, Show d
+                      ) => c `m` d -> b `n` c -> a `p` b -> a -> QC.Property
+law_MCompose_assoc f g h x =
+    ((f `MCompose` g) `MCompose` h) `chase` x QC.===
+    (f `MCompose` (g `MCompose` h)) `chase` x
