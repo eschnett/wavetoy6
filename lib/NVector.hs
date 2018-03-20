@@ -236,3 +236,17 @@ instance KnownNat n => SemicomonadStore Int (NList n) where
 
 instance KnownNat n => SemicomonadStore Int (NVector n) where
     peek i (NVector xs) = peek i xs
+
+
+
+instance KnownNat n => Semicomonad1 (NList n) where
+    extend1 f xs = pure (f `chase` xs)
+    extend1' = extend1
+
+instance KnownNat n => Semicomonad1 (NVector n) where
+    extend1 f xs = pure (f `chase` xs)
+    extend1' = extend1
+
+instance KnownNat n => Semicomonad1 (NUVector n) where
+    extend1 = error "impossible"
+    extend1' f xs = pure (f `chase` xs)

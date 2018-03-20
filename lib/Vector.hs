@@ -127,5 +127,5 @@ instance Semicomonad1 Vector where
     extend1' = extend1
 
 instance Semicomonad1 UVector where
-    extend1 = undefined
+    extend1 = error "impossible"
     extend1' f xs = UVector (U.singleton (f `chase` xs))
