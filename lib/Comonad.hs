@@ -14,7 +14,8 @@ module Comonad ( Semicomonad(..)
                , law_Semicomonad1_comm
                , law_Semicomonad1_comm'
                , Comonad1(..)
-               -- , law_Comonad1_id
+               , law_Comonad1_id
+               , law_Comonad1_id'
                -- , law_Comonad1_apply
                ) where
 
@@ -267,7 +268,7 @@ class Functor f => Semicomonad1 f where
                            , n ~ FunMor f (MId (Dom f))
                            ) => Proxy m -> f a `n` f (f a)
     duplicate1' _ = extend1 MId
-                    \\ (proveFunCod (Proxy @f) :: (Dom f a :- Dom f (f a)))
+                    \\ (proveFunCod (Proxy @f) :: (Dom f a :- Cod f (f a)))
     duplicate1 :: ( Cod f ~ Dom f
                   , Dom f a
                   ) => f a -> f (f a)
@@ -323,4 +324,26 @@ class Semicomonad1 f => Comonad1 f where
     extract1 = extract1' (Proxy @(->))
 
 -- extend extract = id
+law_Comonad1_id :: forall f m n p a.
+                   ( Comonad1 f
+                   , Cod f ~ Dom f
+                   , Morphism m, MorCat m ~ Dom f
+                   , Dom f a
+                   -- TODO: prove the ones below
+                   , n ~ FunMor f m
+                   , Morphism n, MorCat n ~ Cod f
+                   , p ~ FunMor f n
+                   , Morphism p, MorCat p ~ Cod f
+                   ) => Proxy m -> Law (f a) (f a)
+law_Comonad1_id _ = extend1 (extract1' (Proxy @m)) `equals` MId
+                    \\ (proveFunCod (Proxy @f) :: (Dom f a :- Cod f (f a)))
+
+law_Comonad1_id' :: forall f a.
+                    ( Comonad1 f
+                    , Morphism (->), MorCat (->) ~ Cod f
+                    , Dom f a
+                    ) => Law (f a) (f a)
+law_Comonad1_id' = extend1' extract1 `equals` MId
+                   \\ (proveFunCod (Proxy @f) :: (Dom f a :- Cod f (f a)))
+
 -- extract . extend f = f
