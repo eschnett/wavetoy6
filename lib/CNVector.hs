@@ -31,7 +31,7 @@ import Hask
 import NVector
 import Sized
 import Unboxed
-import Vec
+-- import Vec
 import Vector
 
 
@@ -194,27 +194,52 @@ instance (KnownNat n, 1 <= n) => ComonadStore Int (CNVector n) where
 
 
 
-instance (KnownNat n, 1 <= n)
-        => CompactSemicomonad (UVec3 n) (CNUVector n) where
-    restrict (CNUVector i xs) =
-        CVec3 i (if i - 1 >= 0 then xs ! (i - 1) else def)
-                (xs ! i)
-                (if i + 1 < intVal @n then xs ! (i + 1) else def)
-        where (!) (NUVector (UVector ys)) j = ys U.! j
-    -- 'expand' forgets the stencil's boundary values
-    -- maybe the stencil should have 'def' outside the domain?
-    expand (CVec3 i xm x xp) =
+-- instance (KnownNat n, 1 <= n) => FAdjunction (UVec3 n) (CNUVector n) where
+--     restrict (CNUVector i xs) =
+--         CVec3 i (if i - 1 >= 0 then xs ! (i - 1) else def)
+--                 (xs ! i)
+--                 (if i + 1 < intVal @n then xs ! (i + 1) else def)
+--         where (!) (NUVector (UVector ys)) j = ys U.! j
+--     expand (CVec3 i xm x xp) =
+--         CNUVector i (NUVector (UVector (U.generate (intVal @n) go)))
+--         where go j = if | j == i - 1 -> xm
+--                         | j == i -> x
+--                         | j == i + 1 -> xp
+--                         | otherwise -> def
+
+
+
+-- instance (KnownNat n, 1 <= n)
+--         => AdjoiningSemicomonad (UVec3 n) (CNUVector n) where
+--     extendA f (CNUVector i xs) =
+--         CNUVector i (NUVector (UVector (U.generate (intVal @n) go)))
+--         where go j = f `chase` restrict (CNUVector @n j xs)
+-- 
+-- 
+-- 
+-- instance (KnownNat n, 1 <= n) => AdjoiningComonad (UVec3 n) (CNUVector n) where
+--     extractA (CNUVector i (NUVector (UVector xs))) = xs U.! i
+--     extractA' (CVec3 i xm x xp) = x
+
+
+
+instance (KnownNat n, 1 <= n) => Semicomonad1 (CNVector n) where
+    extend1 f (CNVector i xs) =
+        CNVector i (NVector (Vector (V.generate (intVal @n) go)))
+        where go j = f `chase` CNVector j xs
+    extend1' = extend1
+
+instance (KnownNat n, 1 <= n) => Semicomonad1 (CNUVector n) where
+    extend1' f (CNUVector i xs) =
         CNUVector i (NUVector (UVector (U.generate (intVal @n) go)))
-        where go j = if | j == i - 1 -> xm
-                        | j == i -> x
-                        | j == i + 1 -> xp
-                        | otherwise -> def
-    extendC f (CNUVector i xs) =
-        CNUVector i (NUVector (UVector (U.generate (intVal @n) go)))
-        where go j = f `chase` restrict (CNUVector @n j xs)
+        where go j = f `chase` CNUVector j xs
+    extend1 = undefined
 
 
 
-instance (KnownNat n, 1 <= n) => CompactComonad (UVec3 n) (CNUVector n) where
-    extractC (CNUVector i (NUVector (UVector xs))) = xs U.! i
-    extractC' (CVec3 i xm x xp) = x
+instance (KnownNat n, 1 <= n) => Comonad1 (CNVector n) where
+    extract1' _ (CNVector i (NVector (Vector xs))) = xs V.! i
+
+instance (KnownNat n, 1 <= n) => Comonad1 (CNUVector n) where
+    extract1' _ = extract1
+    extract1 (CNUVector i (NUVector (UVector xs))) = xs U.! i

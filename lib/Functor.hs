@@ -23,8 +23,6 @@ import Data.Constraint
 import Data.Monoid hiding (Alt(..))
 import Data.Proxy
 
-import qualified Test.QuickCheck as QC
-
 import Category
 import Comonoid
 
@@ -48,16 +46,14 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
         => a `m` b -> f a `n` f b
 
 -- fmap id == id
-law_Functor_id :: forall f a.
-                   (Functor f
-                   , Dom f a
-                   , Cod f (f a)
-                   , Morphism (FunMor f (MId (Dom f)))
-                   , MorCat (FunMor f (MId (Dom f))) (f a)
-                   , Eq (f a), Show (f a)
-                   ) => f a -> QC.Property
-law_Functor_id xs =
-    fmap MId `chase` xs QC.=== (MId :: MId (Cod f) (f a) (f a)) `chase` xs
+law_Functor_id :: forall f m a.
+                  (Functor f
+                  , Dom f a
+                  , m ~ FunMor f (MId (Dom f))
+                  , Morphism m, MorCat m ~ Cod f
+                  ) => Law (f a) (f a)
+law_Functor_id = fmap MId `equals` MId
+                 \\ (proveFunCod Proxy :: Dom f a :- Cod f (f a))
 
 -- fmap (f . g) == fmap f . fmap g
 law_Functor_comp :: forall f m n mn a b c.
@@ -68,11 +64,9 @@ law_Functor_comp :: forall f m n mn a b c.
                      , Dom f a
                      , Dom f b
                      , Dom f c
-                     , Eq (f c), Show (f c)
-                     ) => m b c -> n a b -> f a -> QC.Property
-law_Functor_comp f g xs =
-    fmap (f `MCompose` g) `chase` xs
-         QC.=== (fmap f `MCompose` fmap g) `chase` xs
+                     ) => m b c -> n a b -> Law (f a) (f c)
+law_Functor_comp f g =
+    fmap (f `MCompose` g) `equals` (fmap f `MCompose` fmap g)
          \\ (proveFunCod Proxy :: Dom f a :- Cod f (f a))
          \\ (proveFunMor (Proxy @f, Proxy @m) ::
                  (Morphism m, MorCat m ~ Dom f)

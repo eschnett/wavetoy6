@@ -119,3 +119,13 @@ instance Semicomonad Vector where
 
 instance SemicomonadStore Int Vector where
     peek i (Vector xs) = xs V.! i
+
+
+
+instance Semicomonad1 Vector where
+    extend1 f xs = Vector (V.singleton (f `chase` xs))
+    extend1' = extend1
+
+instance Semicomonad1 UVector where
+    extend1 = undefined
+    extend1' f xs = UVector (U.singleton (f `chase` xs))

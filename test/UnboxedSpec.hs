@@ -46,9 +46,9 @@ prop_Unboxed_MCompose_assoc f g h =
 
 
 
-prop_Unboxed_Functor_id :: (Float *#* UA) -> Property
-prop_Unboxed_Functor_id = law_Functor_id
+prop_Unboxed_Functor_id :: CheckedLaw (Float *#* UA)
+prop_Unboxed_Functor_id = checkLaw law_Functor_id
 
 prop_Unboxed_Functor_comp ::
-    (UB -#> UC) -> (UA -#> UB) -> (Float *#* UA) -> Property
-prop_Unboxed_Functor_comp = law_Functor_comp
+    (UB -#> UC) -> (UA -#> UB) -> CheckedLaw (Float *#* UA)
+prop_Unboxed_Functor_comp f g = checkLaw (law_Functor_comp f g)

@@ -115,6 +115,7 @@ tests:
     dependencies:
       - QuickCheck
       - base
+      - bifunctors
       - constraints
       - data-default
       - quickcheck-instances

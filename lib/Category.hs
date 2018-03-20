@@ -12,6 +12,10 @@ module Category ( CatKind
                 , CSum(..)
                 , Morphism(..)
                 , Discretization(..)
+                , Law(..)
+                , equals
+                , CheckedLaw
+                , checkLaw
                 , law_Discretization_inv
                 , law_Discretization_approx
                 , MId(..)
@@ -102,6 +106,30 @@ newtype CSum (k :: CatKind) a b = CSum { getCSum :: Either a b }
 
 instance QC.Function (Either a b) => QC.Function (CSum k a b) where
     function = QC.functionMap getCSum CSum
+
+
+
+-- | A law (property) stating that two functions must be equal
+data Law a b = Law (a -> b) (a -> b)
+
+equals :: forall m n k a b.
+          ( Morphism m, Morphism n
+          , k ~ MorCat m
+          , k ~ MorCat n
+          , k a
+          ) => m a b -> n a b -> Law a b
+equals fx fy = Law (chase fx) (chase fy)
+
+-- type CheckedLaw a = [a] -> QC.Property
+-- 
+-- checkLaw :: (Show b, Eq b) => Law a b -> CheckedLaw a
+-- checkLaw (Law fx fy) = QC.conjoin . map check
+--     where check z = fx z QC.=== fy z
+
+type CheckedLaw a = a -> QC.Property
+
+checkLaw :: (Show b, Eq b) => Law a b -> CheckedLaw a
+checkLaw (Law fx fy) z = fx z QC.=== fy z
 
 
 

@@ -105,6 +105,10 @@ instance Monad Proxy where
 instance Semicomonad Proxy where
     extend f Proxy = Proxy
 
+instance Semicomonad1 Proxy where
+    extend1 f Proxy = Proxy
+    extend1' = extend1
+
 -- | 'Identity'
 instance Functor Identity where
     type Dom Identity = Hask
@@ -137,6 +141,13 @@ instance Semicomonad Identity where
 instance Comonad Identity where
     extract (Identity x) = x
     extract' _ = extract
+
+instance Semicomonad1 Identity where
+    extend1 f xs = Identity (f `chase` xs)
+    extend1' = extend1
+
+instance Comonad1 Identity where
+    extract1' _ (Identity x) = x
 
 -- | 'Maybe'
 instance Functor Maybe where
@@ -181,6 +192,11 @@ instance Semicomonad Maybe where
     extend f Nothing = Nothing
     extend f xs = Just (f `chase` xs)
 
+instance Semicomonad1 Maybe where
+    extend1 f Nothing = Nothing
+    extend1 f xs = Just (f `chase` xs)
+    extend1' = extend1
+
 -- | 'Either'
 instance Functor (Either a) where
     type Dom (Either a) = Hask
@@ -215,6 +231,10 @@ instance Monad (Either a) where
 instance Semicomonad (Either a) where
     extend f xs = Right (f `chase` xs)
 
+instance Semicomonad1 (Either a) where
+    extend1 f xs = Right (f `chase` xs)
+    extend1' = extend1
+
 -- | '(,)'
 instance Functor ((,) a) where
     type Dom ((,) a) = Hask
@@ -248,6 +268,13 @@ instance Comonad ((,) a) where
     extract (a, x) = x
     extract' _ = extract
 
+instance Semicomonad1 ((,) a) where
+    extend1 f (a, x) = (a, f `chase` (a, x))
+    extend1' = extend1
+
+instance Comonad1 ((,) a) where
+    extract1' _ (a, x) = x
+
 -- | '(->)'
 instance Functor ((->) a) where
     type Dom ((->) a) = Hask
@@ -274,6 +301,13 @@ instance Monoid a => Semicomonad ((->) a) where
 instance Monoid a => Comonad ((->) a) where
     extract fx = fx `chase` mempty
     extract' _ = extract
+
+instance Monoid a => Semicomonad1 ((->) a) where
+    extend1 f fx = \x -> f `chase` (fx . mappend x)
+    extend1' = extend1
+
+instance Monoid a => Comonad1 ((->) a) where
+    extract1' _ fx = fx `chase` mempty
 
 -- | '[]'
 instance Functor [] where
@@ -319,6 +353,10 @@ instance Monad [] where
 
 instance Semicomonad [] where
     extend f xs = [f `chase` xs]
+
+instance Semicomonad1 [] where
+    extend1 f xs = [f `chase` xs]
+    extend1' = extend1
 
 -- | 'Sum'
 instance ( Functor f
