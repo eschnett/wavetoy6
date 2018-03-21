@@ -50,6 +50,14 @@ prop_CNVector_Comonad1_id = checkLaw (law_Comonad1_id (Proxy @(->)))
 prop_CNVector_Comonad1_id' :: CheckedLaw (CNVector N A)
 prop_CNVector_Comonad1_id' = checkLaw law_Comonad1_id'
 
+prop_CNVector_Comonad1_apply ::
+    Fun (CNVector N A) B -> CheckedLaw (CNVector N A)
+prop_CNVector_Comonad1_apply f = checkLaw (law_Comonad1_apply f)
+
+prop_CNVector_Comonad1_apply' ::
+    Fun (CNVector N A) B -> CheckedLaw (CNVector N A)
+prop_CNVector_Comonad1_apply' (Fn f) = checkLaw (law_Comonad1_apply' f)
+
 
 
 type UA = Int
@@ -77,3 +85,7 @@ prop_CNUVector_Semicomonad1_comm' (Fn f) (Fn g) =
 
 prop_CNUVector_Comonad1_id' :: CheckedLaw (CNUVector N UA)
 prop_CNUVector_Comonad1_id' = checkLaw law_Comonad1_id'
+
+prop_CNUVector_Comonad1_apply' ::
+    Fun (CNVector N UA) UB -> CheckedLaw (CNVector N UA)
+prop_CNUVector_Comonad1_apply' (Fn f) = checkLaw (law_Comonad1_apply' f)

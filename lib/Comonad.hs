@@ -16,7 +16,8 @@ module Comonad ( Semicomonad(..)
                , Comonad1(..)
                , law_Comonad1_id
                , law_Comonad1_id'
-               -- , law_Comonad1_apply
+               , law_Comonad1_apply
+               , law_Comonad1_apply'
                ) where
 
 import Prelude hiding ( Foldable(..)
@@ -347,3 +348,23 @@ law_Comonad1_id' = extend1' extract1 `equals` MId
                    \\ (proveFunCod (Proxy @f) :: (Dom f a :- Cod f (f a)))
 
 -- extract . extend f = f
+law_Comonad1_apply :: forall f m n a b.
+                      ( Comonad1 f
+                      , Cod f ~ Dom f
+                      , Morphism m, MorCat m ~ Dom f
+                      , Dom f a, Dom f b
+                      -- TODO: prove the ones below
+                      , n ~ FunMor f m, Morphism n, MorCat n ~ Cod f
+                      , Cod f (f a)
+                      ) => f a `m` b -> Law (f a) b
+law_Comonad1_apply f =
+    (extract1' (Proxy @m) `MCompose` extend1 f) `equals` f
+
+law_Comonad1_apply' :: forall f a b.
+                       ( Comonad1 f
+                       , Morphism (->), MorCat (->) ~ Cod f
+                       , Dom f a, Dom f b
+                       -- TODO: prove the ones below
+                       , Cod f (f a)
+                       ) => (f a -> b) -> Law (f a) b
+law_Comonad1_apply' f = (extract1 `MCompose` extend1' f) `equals` f
