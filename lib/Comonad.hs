@@ -55,8 +55,7 @@ class (Functor f, Dom f ~ Cod f) => Semicomonad f where
     -- duplicate' _ = extend MId
 
 -- extend f . extend g = extend (f . extend g)
-law_Semicomonad_comm :: forall f m n mn a b c.
-                        ( Semicomonad f
+law_Semicomonad_comm :: ( Semicomonad f
                         , Morphism m, MorCat m ~ Dom f
                         , Morphism n, MorCat n ~ Dom f
                         , mn ~ MCompose m (FunMor f n) (f b)
@@ -65,9 +64,9 @@ law_Semicomonad_comm :: forall f m n mn a b c.
                         , Morphism (FunMor f n), MorCat (FunMor f n) ~ Cod f
                         , Morphism (FunMor f mn), MorCat (FunMor f mn) ~ Cod f
                         , Cod f (f a)
-                        ) => f b `m` c -> f a `n` b -> Law (f a) (f c)
+                        ) => f b `m` c -> f a `n` b -> FnEqual (f a) (f c)
 law_Semicomonad_comm f g =
-    (extend f `MCompose` extend g) `equals` (extend (f `MCompose` extend g))
+    (extend f `MCompose` extend g) `FnEqual` (extend (f `MCompose` extend g))
 
 -- | Comonad
 class Semicomonad f => Comonad f where
@@ -80,25 +79,22 @@ law_Comonad_id :: forall f m n a.
                   ( Comonad f
                   , Morphism m, MorCat m ~ Dom f
                   , n ~ FunMor f m
-                  , Eq (f a), Show (f a)
                   -- TODO: prove the ones below
                   , Morphism n, MorCat n ~ Cod f
                   , Morphism (FunMor f n), MorCat (FunMor f n) ~ Cod f
                   , Cod f (f a)
-                  ) => Proxy m -> f a -> QC.Property
-law_Comonad_id _ xs = extend (extract' (Proxy @m)) `chase` xs QC.=== xs
+                  ) => Proxy m -> FnEqual (f a) (f a)
+law_Comonad_id _ = extend (extract' (Proxy @m)) `FnEqual` MId
 
 -- extract . extend f = f
 law_Comonad_apply :: forall f m a b.
                      ( Comonad f
                      , Morphism m, MorCat m ~ Dom f
                      , Morphism (FunMor f m), MorCat (FunMor f m) ~ Cod f
-                     , Eq b, Show b
                      -- TODO: prove the ones below
                      , Cod f (f a)
-                     ) => f a `m` b -> f a -> QC.Property
-law_Comonad_apply f xs =
-    (extract' (Proxy @m) `MCompose` extend f) `chase` xs QC.=== f `chase` xs
+                     ) => f a `m` b -> FnEqual (f a) b
+law_Comonad_apply f = (extract' (Proxy @m) `MCompose` extend f) `FnEqual` f
 
 
 
@@ -159,13 +155,13 @@ class (Functor f, Functor g, Dom g ~ Dom f, Cod g ~ Cod f)
 
 -- restrict . expand = id
 law_FAdjunction_restrict :: forall f g a.
-                              ( FAdjunction g f
-                              , Dom f a
-                              , Default a
-                              , Eq (g a), Show (g a)
-                              ) => Proxy f -> g a -> QC.Property
-law_FAdjunction_restrict _ xs =
-    (restrict . (expand :: g a -> f a)) xs QC.=== xs
+                            ( FAdjunction g f
+                            , Dom f a
+                            , Default a
+                            , Morphism (->), MorCat (->) (g a)
+                            ) => Proxy f -> FnEqual (g a) (g a)
+law_FAdjunction_restrict _ =
+    (restrict . (expand :: g a -> f a)) `FnEqual` id
                                         
 -- | Every functor category is adjoint to itself
 instance Functor f => FAdjunction f f where
@@ -292,9 +288,9 @@ law_Semicomonad1_comm :: ( Semicomonad1 f
                          , Morphism (FunMor f n), MorCat (FunMor f n) ~ Cod f
                          , Morphism (FunMor f mn), MorCat (FunMor f mn) ~ Cod f
                          , Cod f (f a)
-                         ) => f b `m` c -> f a `n` b -> Law (f a) (f c)
+                         ) => f b `m` c -> f a `n` b -> FnEqual (f a) (f c)
 law_Semicomonad1_comm f g =
-    (extend1 f `MCompose` extend1 g) `equals` (extend1 (f `MCompose` extend1 g))
+    (extend1 f `MCompose` extend1 g) `FnEqual` (extend1 (f `MCompose` extend1 g))
 
 law_Semicomonad1_comm' :: ( Semicomonad1 f
                           , Morphism (->)
@@ -304,9 +300,9 @@ law_Semicomonad1_comm' :: ( Semicomonad1 f
                           -- TODO: prove the ones below
                           -- , Cod f (f a), Cod f (f b), Cod f (f c)
                           , k (f a) --, k (f b), k (f c)
-                          ) => (f b -> c) -> (f a -> b) -> Law (f a) (f c)
+                          ) => (f b -> c) -> (f a -> b) -> FnEqual (f a) (f c)
 law_Semicomonad1_comm' f g =
-    (extend1' f `MCompose` extend1' g) `equals`
+    (extend1' f `MCompose` extend1' g) `FnEqual`
        (extend1' (chase (f `MCompose` extend1' g)))
 
 
@@ -335,16 +331,16 @@ law_Comonad1_id :: forall f m n p a.
                    , Morphism n, MorCat n ~ Cod f
                    , p ~ FunMor f n
                    , Morphism p, MorCat p ~ Cod f
-                   ) => Proxy m -> Law (f a) (f a)
-law_Comonad1_id _ = extend1 (extract1' (Proxy @m)) `equals` MId
+                   ) => Proxy m -> FnEqual (f a) (f a)
+law_Comonad1_id _ = extend1 (extract1' (Proxy @m)) `FnEqual` MId
                     \\ (proveFunCod (Proxy @f) :: (Dom f a :- Cod f (f a)))
 
 law_Comonad1_id' :: forall f a.
                     ( Comonad1 f
                     , Morphism (->), MorCat (->) ~ Cod f
                     , Dom f a
-                    ) => Law (f a) (f a)
-law_Comonad1_id' = extend1' extract1 `equals` MId
+                    ) => FnEqual (f a) (f a)
+law_Comonad1_id' = extend1' extract1 `FnEqual` MId
                    \\ (proveFunCod (Proxy @f) :: (Dom f a :- Cod f (f a)))
 
 -- extract . extend f = f
@@ -356,9 +352,9 @@ law_Comonad1_apply :: forall f m n a b.
                       -- TODO: prove the ones below
                       , n ~ FunMor f m, Morphism n, MorCat n ~ Cod f
                       , Cod f (f a)
-                      ) => f a `m` b -> Law (f a) b
+                      ) => f a `m` b -> FnEqual (f a) b
 law_Comonad1_apply f =
-    (extract1' (Proxy @m) `MCompose` extend1 f) `equals` f
+    (extract1' (Proxy @m) `MCompose` extend1 f) `FnEqual` f
 
 law_Comonad1_apply' :: forall f a b.
                        ( Comonad1 f
@@ -366,5 +362,5 @@ law_Comonad1_apply' :: forall f a b.
                        , Dom f a, Dom f b
                        -- TODO: prove the ones below
                        , Cod f (f a)
-                       ) => (f a -> b) -> Law (f a) b
-law_Comonad1_apply' f = (extract1 `MCompose` extend1' f) `equals` f
+                       ) => (f a -> b) -> FnEqual (f a) b
+law_Comonad1_apply' f = (extract1 `MCompose` extend1' f) `FnEqual` f

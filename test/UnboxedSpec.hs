@@ -9,6 +9,7 @@ import Test.QuickCheck
 
 import Category
 import Functor
+import Hask()
 import Unboxed
 
 
@@ -18,12 +19,13 @@ type UB = Double
 type UC = Complex Double
 type UD = Int
 
-prop_Unboxed_Discretization_inv :: Fun UA UB -> UA -> Property
-prop_Unboxed_Discretization_inv f = law_Discretization_inv (UQCFun f)
+prop_Unboxed_Discretization_inv :: Fun UA UB -> FnProp UA
+prop_Unboxed_Discretization_inv f =
+    checkFnEqual (law_Discretization_inv (UQCFun f))
 
-prop_Unboxed_Discretization_approx :: Fun UA UB -> UA -> Property
-prop_Unboxed_Discretization_approx (Fn f) x =
-    law_Discretization_approx (Proxy @(-#>)) f x (===)
+prop_Unboxed_Discretization_approx :: Fun UA UB -> FnProp UA
+prop_Unboxed_Discretization_approx (Fn f) =
+    checkFnEqual (law_Discretization_approx (Proxy @(-#>)) f)
 
 
 
@@ -46,9 +48,9 @@ prop_Unboxed_MCompose_assoc f g h =
 
 
 
-prop_Unboxed_Functor_id :: CheckedLaw (Float *#* UA)
-prop_Unboxed_Functor_id = checkLaw law_Functor_id
+prop_Unboxed_Functor_id :: FnProp (Float *#* UA)
+prop_Unboxed_Functor_id = checkFnEqual law_Functor_id
 
 prop_Unboxed_Functor_comp ::
-    (UB -#> UC) -> (UA -#> UB) -> CheckedLaw (Float *#* UA)
-prop_Unboxed_Functor_comp f g = checkLaw (law_Functor_comp f g)
+    (UB -#> UC) -> (UA -#> UB) -> FnProp (Float *#* UA)
+prop_Unboxed_Functor_comp f g = checkFnEqual (law_Functor_comp f g)

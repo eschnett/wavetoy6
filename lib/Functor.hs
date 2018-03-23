@@ -47,12 +47,12 @@ class (Category (Dom f), Category (Cod f)) => Functor f where
 
 -- fmap id == id
 law_Functor_id :: forall f m a.
-                  (Functor f
+                  ( Functor f
                   , Dom f a
                   , m ~ FunMor f (MId (Dom f))
                   , Morphism m, MorCat m ~ Cod f
-                  ) => Law (f a) (f a)
-law_Functor_id = fmap MId `equals` MId
+                  ) => FnEqual (f a) (f a)
+law_Functor_id = fmap MId `FnEqual` MId
                  \\ (proveFunCod Proxy :: Dom f a :- Cod f (f a))
 
 -- fmap (f . g) == fmap f . fmap g
@@ -64,9 +64,9 @@ law_Functor_comp :: forall f m n mn a b c.
                      , Dom f a
                      , Dom f b
                      , Dom f c
-                     ) => m b c -> n a b -> Law (f a) (f c)
+                     ) => m b c -> n a b -> FnEqual (f a) (f c)
 law_Functor_comp f g =
-    fmap (f `MCompose` g) `equals` (fmap f `MCompose` fmap g)
+    fmap (f `MCompose` g) `FnEqual` (fmap f `MCompose` fmap g)
          \\ (proveFunCod Proxy :: Dom f a :- Cod f (f a))
          \\ (proveFunMor (Proxy @f, Proxy @m) ::
                  (Morphism m, MorCat m ~ Dom f)

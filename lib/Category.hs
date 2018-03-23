@@ -12,10 +12,9 @@ module Category ( CatKind
                 , CSum(..)
                 , Morphism(..)
                 , Discretization(..)
-                , Law(..)
-                , equals
-                , CheckedLaw
-                , checkLaw
+                , FnEqual(..)
+                , FnProp
+                , checkFnEqual
                 , law_Discretization_inv
                 , law_Discretization_approx
                 , MId(..)
@@ -109,27 +108,17 @@ instance QC.Function (Either a b) => QC.Function (CSum k a b) where
 
 
 
--- | A law (property) stating that two functions must be equal
-data Law a b = Law (a -> b) (a -> b)
+-- | A law (property) stating that two functions are equal
+data FnEqual a b where
+    FnEqual :: ( Morphism m, MorCat m a
+               , Morphism n, MorCat n a
+               , MorCat m ~ MorCat n)
+               => a `m` b -> a `n` b -> FnEqual a b
 
-equals :: forall m n k a b.
-          ( Morphism m, Morphism n
-          , k ~ MorCat m
-          , k ~ MorCat n
-          , k a
-          ) => m a b -> n a b -> Law a b
-equals fx fy = Law (chase fx) (chase fy)
+type FnProp a = a -> QC.Property
 
--- type CheckedLaw a = [a] -> QC.Property
--- 
--- checkLaw :: (Show b, Eq b) => Law a b -> CheckedLaw a
--- checkLaw (Law fx fy) = QC.conjoin . map check
---     where check z = fx z QC.=== fy z
-
-type CheckedLaw a = a -> QC.Property
-
-checkLaw :: (Show b, Eq b) => Law a b -> CheckedLaw a
-checkLaw (Law fx fy) z = fx z QC.=== fy z
+checkFnEqual :: (Show b, Eq b) => FnEqual a b -> FnProp a
+checkFnEqual (FnEqual fx fy) z = fx `chase` z QC.=== fy `chase` z
 
 
 
@@ -158,19 +147,17 @@ law_Discretization_inv :: forall m a b.
                           ( Discretization m
                           , MorCat m a
                           , MorCat m b
-                          , Eq b, Show b
-                          ) => a `m` b -> a -> QC.Property
-law_Discretization_inv f x =
-    discretize @m (chase f) `chase` x QC.=== f `chase` x
+                          ) => a `m` b -> FnEqual a b
+law_Discretization_inv f = discretize @m (chase f) `FnEqual` f
 
 -- | chase . discretize `approx` id
 law_Discretization_approx :: forall m a b.
                              ( Discretization m
                              , MorCat m a
                              , MorCat m b
-                             ) => Proxy m -> (a -> b) -> a ->
-                            (b -> b -> QC.Property) -> QC.Property
-law_Discretization_approx _ f x cmp = (chase . discretize @m) f x `cmp` f x
+                             , Morphism (->), MorCat (->) a
+                             ) => Proxy m -> (a -> b) -> FnEqual a b
+law_Discretization_approx _ f = chase (discretize @m f) `FnEqual` f
 
 
 
